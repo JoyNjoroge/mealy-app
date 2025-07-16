@@ -3,7 +3,7 @@ from flask_login import UserMixin
 from sqlalchemy_serializer import SerializerMixin
 from datetime import datetime
 
-db = SQLAlchemy()
+from app import db
 
 
 class User(UserMixin, db.Model, SerializerMixin):
