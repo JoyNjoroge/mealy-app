@@ -1,4 +1,5 @@
-from .models import db, User, Meal, Menu, MenuItem, Order, Notification
+
+from models import db, User, Meal, Menu, MenuItem, Order, Notification
 from datetime import datetime
 
 def seed_data():
