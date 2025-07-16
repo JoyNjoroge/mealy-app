@@ -1,55 +1,89 @@
-from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_login import UserMixin, LoginManager
-
+from flask_login import UserMixin
+from sqlalchemy_serializer import SerializerMixin
+from datetime import datetime
 
 db = SQLAlchemy()
-migrate = Migrate()
-login_manager = LoginManager()
 
-class Admin(UserMixin, db.Model):
-    __tablename__ = 'admins'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
 
-    def __repr__(self):
-        return f'<Admin {self.username}>'
-    
-class User(UserMixin, db.Model):
+class User(UserMixin, db.Model, SerializerMixin):
     __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
 
-    def __repr__(self):
-        return f'<User {self.username}>'
+    serialize_rules = ('-password', '-orders.user', '-notifications.user')
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False, unique=True)
+    email = db.Column(db.String(120), nullable=False, unique=True)
+    password = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # 'customer' or 'caterer'
+
     
-class Order(db.Model):
+    orders = db.relationship('Order', backref='user', cascade='all, delete')
+    notifications = db.relationship('Notification', backref='user', cascade='all, delete')
+    meals = db.relationship('Meal', backref='caterer', cascade='all, delete')
+    menus = db.relationship('Menu', backref='caterer', cascade='all, delete')
+
+
+class Meal(db.Model, SerializerMixin):
+    __tablename__ = 'meals'
+
+    serialize_rules = ('-menu_items.meal',)
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    price = db.Column(db.Float, nullable=False)
+    image_url = db.Column(db.String(255), nullable=True)
+
+ 
+    menu_items = db.relationship('MenuItem', backref='meal', cascade='all, delete')
+
+
+class Menu(db.Model, SerializerMixin):
+    __tablename__ = 'menus'
+
+    serialize_rules = ('-menu_items.menu',)
+
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False, unique=True)
+
+   
+    menu_items = db.relationship('MenuItem', backref='menu', cascade='all, delete')
+
+
+class MenuItem(db.Model, SerializerMixin):
+    __tablename__ = 'menu_items'
+
+    serialize_rules = ('-orders.menu_item',)
+
+    id = db.Column(db.Integer, primary_key=True)
+    menu_id = db.Column(db.Integer, db.ForeignKey('menus.id'), nullable=False)
+    meal_id = db.Column(db.Integer, db.ForeignKey('meals.id'), nullable=False)
+
+
+    orders = db.relationship('Order', backref='menu_item', cascade='all, delete')
+
+
+class Order(db.Model, SerializerMixin):
     __tablename__ = 'orders'
+
+    serialize_rules = ('-user.orders', '-menu_item.orders')
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    vendor_id = db.Column(db.Integer, db.ForeignKey('vendors.id'), nullable=False)
-    product_name = db.Column(db.String(120), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-    status = db.Column(db.String(50), default='pending')
+    menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_items.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1, nullable=False)
+    total_price = db.Column(db.Float, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('orders', lazy=True))
-    vendor = db.relationship('Vendor', backref=db.backref('orders', lazy=True))
 
-    def __repr__(self):
-        return f'<Order {self.product_name} by User {self.user_id}>'
-    
+class Notification(db.Model, SerializerMixin):
+    __tablename__ = 'notifications'
 
-class Vendor(db.Model):
-    __tablename__ = 'vendors'
+    serialize_rules = ('-user.notifications',)
+
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-
-    def __repr__(self):
-        return f'<Vendor {self.name}>'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
