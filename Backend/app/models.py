@@ -5,6 +5,7 @@ from datetime import datetime
 from flask_migrate import Migrate
 from sqlalchemy import Enum
 
+
 db = SQLAlchemy()
 migrate = Migrate()
 
@@ -13,7 +14,7 @@ roles = ('customer', 'caterer', 'admin')
 
 class User(db.Model, UserMixin, SerializerMixin):
     __tablename__ = 'users'
-    serialize_rules = ('-orders.user', '-notifications.user', '-meals.caterer', '-menus.caterer')
+    serialize_rules = ('-orders', '-notifications', '-meals', '-menus')
 
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(50), unique=True)
@@ -21,6 +22,7 @@ class User(db.Model, UserMixin, SerializerMixin):
     email = db.Column(db.String(70), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(Enum(*roles, name='user_roles'), nullable=False)
+    
 
     orders = db.relationship('Order', backref='user', cascade='all, delete')
     notifications = db.relationship('Notification', backref='user', cascade='all, delete')
@@ -33,7 +35,7 @@ class User(db.Model, UserMixin, SerializerMixin):
 
 class Meal(db.Model, SerializerMixin):
     __tablename__ = 'meals'
-    serialize_rules = ('-menu_items.meal',)
+    serialize_rules = ('-menu_items',)
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -50,7 +52,7 @@ class Meal(db.Model, SerializerMixin):
 
 class Menu(db.Model, SerializerMixin):
     __tablename__ = 'menus'
-    serialize_rules = ('-menu_items.menu',)
+    serialize_rules = ('-menu_items',)
 
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False, unique=True)
@@ -64,7 +66,7 @@ class Menu(db.Model, SerializerMixin):
 
 class MenuItem(db.Model, SerializerMixin):
     __tablename__ = 'menu_items'
-    serialize_rules = ('-orders.menu_item',)
+    serialize_rules = ('-orders',)
 
     id = db.Column(db.Integer, primary_key=True)
     menu_id = db.Column(db.Integer, db.ForeignKey('menus.id'), nullable=False, index=True)
@@ -78,7 +80,7 @@ class MenuItem(db.Model, SerializerMixin):
 
 class Order(db.Model, SerializerMixin):
     __tablename__ = 'orders'
-    serialize_rules = ('-user.orders', '-menu_item.orders')
+    serialize_rules = ('-user', '-menu_item')
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
@@ -94,7 +96,7 @@ class Order(db.Model, SerializerMixin):
 
 class Notification(db.Model, SerializerMixin):
     __tablename__ = 'notifications'
-    serialize_rules = ('-user.notifications',)
+    serialize_rules = ('-user',)
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)

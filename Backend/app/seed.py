@@ -1,6 +1,6 @@
-
-from models import db, User, Meal, Menu, MenuItem, Order, Notification
+from .models import db, User, Meal, Menu, MenuItem, Order, Notification
 from datetime import datetime
+from werkzeug.security import generate_password_hash
 
 def seed_data():
     # Clear existing data
@@ -13,8 +13,9 @@ def seed_data():
     db.session.commit()
 
     # Create Users
-    user1 = User(username='alice', email='alice@example.com', password='password1', role='customer')
-    user2 = User(username='bob', email='bob@example.com', password='password2', role='caterer')
+    user1 = User(name='Alice', email='alice@example.com', role='customer', password=generate_password_hash('password1'))
+    user2 = User(name='Bob', email='bob@example.com', role='caterer', password=generate_password_hash('password2'))
+
     db.session.add_all([user1, user2])
     db.session.commit()
 
