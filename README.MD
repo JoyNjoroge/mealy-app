@@ -273,7 +273,6 @@ GitHub: [@iannyicon](https://github.com/iannyicon)
 
 
 [contributors-url]: https://github.com/JoyNjoroge/mealy-app/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/JoyNjoroge/mealy-app.svg?style=for-the-badge
 [forks-url]: https://github.com/JoyNjoroge/mealy-app/network/members
 [license-url]: https://github.com/JoyNjoroge/mealy-app/blob/main/LICENSE
 
