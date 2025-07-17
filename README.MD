@@ -1,15 +1,13 @@
 <a id="readme-top"></a>
 
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![MIT License][license-shield]][license-url]
+[![Contributors][contributors-url]
+[![Forks][forks-url]
+[![MIT License][license-url]
 
 <br />
 <div align="center">
   <a href="https://github.com/JoyNjoroge/mealy-app">
-    <img src="images/logo.png" alt="Logo" width="80" height="80" />
-  </a>
+      </a>
 
   <h3 align="center">Mealy App - Backend</h3>
 
