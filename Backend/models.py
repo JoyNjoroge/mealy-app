@@ -13,7 +13,7 @@ class UserRoles(enum.Enum):
 
 class User(db.Model, UserMixin, SerializerMixin):
     __tablename__ = 'users'
-    serialize_rules = ('-orders', '-notifications', '-meals', '-menus')
+    serialize_rules = ('-orders', '-notificat==> Bions', '-meals', '-menus')
 
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(50), unique=True)
