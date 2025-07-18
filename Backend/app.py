@@ -18,7 +18,7 @@ from sendgrid.helpers.mail import Mail
 import click
 from functools import wraps
 from http import HTTPStatus
-from .models import db, User, Meal, Menu, MenuItem, Order, Notification
+from models import db, User, Meal, Menu, MenuItem, Order, Notification
 
 # Load environment variables
 load_dotenv()

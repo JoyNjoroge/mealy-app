@@ -1,4 +1,4 @@
-from .models import db, User, Meal, Menu, MenuItem, Order, Notification
+from models import db, User, Meal, Menu, MenuItem, Order, Notification
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 from faker import Faker
