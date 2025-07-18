@@ -228,7 +228,7 @@ Triggered on:
 
 * Joy Njoroge – [@JoyNjoroge](https://github.com/JoyNjoroge)
 * Lenah Mbae – [@lenah-mbae](https://github.com/lenah-mbae)
-* Ian Nyicon – [@iannyicon](https://github.com/iannyicon)
+* Ian Kiprop – [@iannyicon](https://github.com/iannyicon)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -250,7 +250,7 @@ GitHub: [@JoyNjoroge](https://github.com/JoyNjoroge)
 **Lenah Mbae**
 GitHub: [@lenah-mbae](https://github.com/lenah-mbae)
 
-**Ian Nyicon**
+**Ian Kiprop**
 GitHub: [@iannyicon](https://github.com/iannyicon)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
