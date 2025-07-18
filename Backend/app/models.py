@@ -2,15 +2,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from sqlalchemy_serializer import SerializerMixin
 from datetime import datetime
-from flask_migrate import Migrate
-from sqlalchemy import Enum
-
+import enum
 
 db = SQLAlchemy()
-migrate = Migrate()
 
-roles = ('customer', 'caterer', 'admin')
-
+class UserRoles(enum.Enum):
+    customer = 'customer'
+    caterer = 'caterer'
+    admin = 'admin'
 
 class User(db.Model, UserMixin, SerializerMixin):
     __tablename__ = 'users'
@@ -21,8 +20,7 @@ class User(db.Model, UserMixin, SerializerMixin):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(70), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    role = db.Column(Enum(*roles, name='user_roles'), nullable=False)
-    
+    role = db.Column(db.Enum(UserRoles), nullable=False, default=UserRoles.customer)
 
     orders = db.relationship('Order', backref='user', cascade='all, delete')
     notifications = db.relationship('Notification', backref='user', cascade='all, delete')
@@ -31,7 +29,6 @@ class User(db.Model, UserMixin, SerializerMixin):
 
     def __repr__(self):
         return f'<User {self.email}>'
-
 
 class Meal(db.Model, SerializerMixin):
     __tablename__ = 'meals'
@@ -49,7 +46,6 @@ class Meal(db.Model, SerializerMixin):
     def __repr__(self):
         return f'<Meal {self.name}>'
 
-
 class Menu(db.Model, SerializerMixin):
     __tablename__ = 'menus'
     serialize_rules = ('-menu_items',)
@@ -63,7 +59,6 @@ class Menu(db.Model, SerializerMixin):
     def __repr__(self):
         return f'<Menu {self.date}>'
 
-
 class MenuItem(db.Model, SerializerMixin):
     __tablename__ = 'menu_items'
     serialize_rules = ('-orders',)
@@ -76,7 +71,6 @@ class MenuItem(db.Model, SerializerMixin):
 
     def __repr__(self):
         return f'<MenuItem Menu={self.menu_id} Meal={self.meal_id}>'
-
 
 class Order(db.Model, SerializerMixin):
     __tablename__ = 'orders'
@@ -92,7 +86,6 @@ class Order(db.Model, SerializerMixin):
 
     def __repr__(self):
         return f'<Order {self.id} User={self.user_id}>'
-
 
 class Notification(db.Model, SerializerMixin):
     __tablename__ = 'notifications'

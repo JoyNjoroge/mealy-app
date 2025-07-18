@@ -1,41 +1,82 @@
-from flask import Flask, request, jsonify, redirect, url_for, render_template, make_response
-from flask_login import LoginManager, login_user, login_required, logout_user
-from flask_cors import CORS
-from .models import db, migrate, User, Order, Notification, Meal, Menu, MenuItem
-from .seed import seed_data
 import os
-from dotenv import load_dotenv
-import jwt
-import uuid
-from datetime import datetime, timezone, timedelta
-from functools import wraps
+from flask import Flask, request, jsonify, make_response
+from flask_migrate import Migrate
+from flask_restful import Api, Resource
+from flask_jwt_extended import (
+    JWTManager, jwt_required, create_access_token,
+    get_jwt_identity, get_jwt
+)
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import timedelta, datetime
+from dotenv import load_dotenv
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import or_, and_, func
 import cloudinary
 import cloudinary.uploader
+import sendgrid
+from sendgrid.helpers.mail import Mail
+import click
+from functools import wraps
+from http import HTTPStatus
+from .models import db, User, Meal, Menu, MenuItem, Order, Notification
 
+# Load environment variables
 load_dotenv()
 
+# Initialize Flask app
 app = Flask(__name__)
-CORS(app)
-login_manager = LoginManager()
-
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URI")
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
 
-# Cloudinary config
+# Initialize extensions
+db.init_app(app)
+migrate = Migrate(app, db)
+api = Api(app)
+jwt = JWTManager(app)
+
+
+# Configure Cloudinary
 cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
 )
 
-db.init_app(app)
-migrate.init_app(app, db)
-login_manager.init_app(app)
+# Configure SendGrid
+sg = sendgrid.SendGridAPIClient(api_key=os.getenv('SENDGRID_API_KEY'))
 
-with app.app_context():
-    db.create_all()
+# Custom error classes
+class MealAPIError(Exception):
+    def __init__(self, message, status_code=400, payload=None):
+        super().__init__()
+        self.message = message
+        self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['message'] = self.message
+        rv['status_code'] = self.status_code
+        return rv
+
+class NotFoundError(MealAPIError):
+    def __init__(self, message="Resource not found", payload=None):
+        super().__init__(message, 404, payload)
+
+class UnauthorizedError(MealAPIError):
+    def __init__(self, message="Unauthorized access", payload=None):
+        super().__init__(message, 401, payload)
+
+class ForbiddenError(MealAPIError):
+    def __init__(self, message="Forbidden", payload=None):
+        super().__init__(message, 403, payload)
+
+class ValidationError(MealAPIError):
+    def __init__(self, message="Validation error", payload=None):
+        super().__init__(message, 422, payload)
 
 @app.cli.command('seed')
 def seed():
@@ -43,308 +84,715 @@ def seed():
         seed_data()
         print("Database seeded successfully.")
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+# Error handlers
+@app.errorhandler(MealAPIError)
+def handle_meal_api_error(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.cookies.get('jwt_token')
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            current_user = User.query.filter_by(public_id=data['public_id']).first()
-        except Exception:
-            return jsonify({'message': 'Token is invalid!'}), 401
-        return f(current_user, *args, **kwargs)
-    return decorated
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"message": "Resource not found"}), 404
 
-@app.route('/')
-def index():
-    return "Welcome to the Mealy App Backend!"
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"message": "Internal server error"}), 500
 
-# User CRUD
-@app.route('/users', methods=['GET'])
-def get_users():
-    users = User.query.all()
-    return jsonify([user.to_dict() for user in users])
+# Role-based access control decorator
+def roles_required(*roles):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorator(*args, **kwargs):
+            current_user = get_jwt_identity()
+            user = User.query.filter_by(email=current_user).first()
+            
+            if not user:
+                raise UnauthorizedError("User not found")
+            
+            if user.role.name not in roles:
+                raise ForbiddenError("You don't have permission to access this resource")
+            
+            return fn(*args, **kwargs)
+        return decorator
+    return wrapper
 
-@app.route('/users/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    user = User.query.get_or_404(user_id)
-    return jsonify(user.to_dict())
+# Utility functions
+def send_email(to_email, subject, content):
+    message = Mail(
+        from_email=os.getenv('SENDER_EMAIL'),
+        to_emails=to_email,
+        subject=subject,
+        html_content=content)
+    try:
+        sg.send(message)
+    except Exception as e:
+        app.logger.error(f"Error sending email: {str(e)}")
 
-@app.route('/users', methods=['POST'])
-def create_user():
-    data = request.json
+def paginate(query, page, per_page):
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+    return {
+        'items': [item.to_dict() for item in paginated.items],
+        'total': paginated.total,
+        'pages': paginated.pages,
+        'current_page': paginated.page
+    }
+
+# Auth Routes
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    
+    if not data or not data.get('email') or not data.get('password'):
+        raise ValidationError("Email and password are required")
+    
     if User.query.filter_by(email=data['email']).first():
-        return jsonify({'message': 'User already exists.'}), 400
-    hashed_password = generate_password_hash(data['password'])
-    new_user = User(
-        public_id=str(uuid.uuid4()),
-        name=data['name'],
-        email=data['email'],
-        password=hashed_password,
-        role=data.get('role', 'customer')
-    )
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify(new_user.to_dict()), 201
+        raise ValidationError("Email already exists")
+    
+    # ✅ Assign the hashed password
+    hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
+    
+    try:
+        user = User(
+            name=data.get('name', ''),
+            email=data['email'],
+            password=hashed_password,
+            role=data.get('role', 'customer')
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        # Send welcome email
+        send_email(
+            user.email,
+            "Welcome to Mealy",
+            f"<h1>Welcome {user.name}</h1><p>Your account has been created successfully.</p>"
+        )
+        
+        return jsonify({
+            'message': 'User created successfully',
+            'user': user.to_dict()
+        }), HTTPStatus.CREATED
 
-@app.route('/users/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    
+    if not data or not data.get('email') or not data.get('password'):
+        raise ValidationError("Email and password are required")
+    
+    user = User.query.filter_by(email=data['email']).first()
+    
+    if not user or not check_password_hash(user.password, data['password']):
+        raise UnauthorizedError("Invalid credentials")
+    
+    access_token = create_access_token(identity=user.email, additional_claims={'role': user.role.name})
+    return jsonify({
+        'message': 'Login successful',
+        'access_token': access_token,
+        'user': user.to_dict()
+    }), HTTPStatus.OK
+
+# User Routes
+@app.route('/api/users', methods=['GET'])
+@jwt_required()
+@roles_required('admin')
+def get_users():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    users = User.query.order_by(User.id)
+    return jsonify(paginate(users, page, per_page))
+
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+@jwt_required()
+def get_user(user_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
     user = User.query.get_or_404(user_id)
-    data = request.json
-    user.name = data.get('name', user.name)
-    user.email = data.get('email', user.email)
-    if 'password' in data:
-        user.password = generate_password_hash(data['password'])
-    user.role = data.get('role', user.role)
-    db.session.commit()
+    
+    # Users can only view their own profile unless they're admin
+    if current_user.id != user.id and current_user.role.name != 'admin':
+        raise ForbiddenError()
+    
     return jsonify(user.to_dict())
 
-@app.route('/users/<int:user_id>', methods=['DELETE'])
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@jwt_required()
+def update_user(user_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Users can only update their own profile unless they're admin
+    if current_user.id != user.id and current_user.role.name != 'admin':
+        raise ForbiddenError()
+    
+    data = request.get_json()
+    
+    try:
+        if 'name' in data:
+            user.name = data['name']
+        if 'email' in data and data['email'] != user.email:
+            if User.query.filter_by(email=data['email']).first():
+                raise ValidationError("Email already exists")
+            user.email = data['email']
+        if 'password' in data:
+            user.password = generate_password_hash(data['password'], method='sha256')
+        if 'role' in data and current_user.role.name == 'admin':
+            user.role = data['role']
+        
+        db.session.commit()
+        return jsonify({
+            'message': 'User updated successfully',
+            'user': user.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@jwt_required()
+@roles_required('admin')
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({'message': 'User deleted'})
+    
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'message': 'User deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
 
-@app.route('/meals', methods=['GET'])
+# Meal Routes
+@app.route('/api/meals', methods=['GET'])
 def get_meals():
-    meals = Meal.query.all()
-    return jsonify([meal.to_dict() for meal in meals])
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    search = request.args.get('search', '')
+    
+    query = Meal.query
+    
+    if search:
+        query = query.filter(or_(
+            Meal.name.ilike(f'%{search}%'),
+            Meal.description.ilike(f'%{search}%')
+        ))
+    
+    query = query.order_by(Meal.id)
+    return jsonify(paginate(query, page, per_page))
 
-@app.route('/meals/<int:meal_id>', methods=['GET'])
+
+@app.route('/api/meals/<int:meal_id>', methods=['GET'])
 def get_meal(meal_id):
     meal = Meal.query.get_or_404(meal_id)
     return jsonify(meal.to_dict())
 
-@app.route('/meals', methods=['POST'])
+@app.route('/api/meals', methods=['POST'])
+@jwt_required()
+@roles_required('caterer', 'admin') 
 def create_meal():
-    name = request.form.get('name')
-    description = request.form.get('description')
-    price = request.form.get('price')
-    image = request.files.get('image')
-    image_url = None
-    if image:
-        upload_result = cloudinary.uploader.upload(image)
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+
+    data = request.form.to_dict()
+    image_file = request.files.get('image')
+
+    if not data.get('name') or not data.get('price'):
+        raise ValidationError("Name and price are required")
+
+    if not image_file:
+        raise ValidationError("Image is required")
+
+    try:
+        upload_result = cloudinary.uploader.upload(image_file)
         image_url = upload_result.get('secure_url')
-    meal = Meal(
-        name=name,
-        description=description,
-        price=float(price),
-        image_url=image_url
-    )
-    db.session.add(meal)
-    db.session.commit()
-    return jsonify(meal.to_dict()), 201
 
-@app.route('/meals/<int:meal_id>', methods=['PUT'])
-def update_meal(meal_id):
-    meal = Meal.query.get_or_404(meal_id)
-    data = request.form
-    meal.name = data.get('name', meal.name)
-    meal.description = data.get('description', meal.description)
-    meal.price = float(data.get('price', meal.price))
-    image = request.files.get('image')
-    if image:
-        upload_result = cloudinary.uploader.upload(image)
-        meal.image_url = upload_result.get('secure_url')
-    db.session.commit()
-    return jsonify(meal.to_dict())
+        meal = Meal(
+            name=data['name'],
+            description=data.get('description', ''),
+            price=float(data['price']),
+            caterer_id=current_user.id,
+            image_url=image_url
+        )
+        db.session.add(meal)
+        db.session.commit()
 
-@app.route('/meals/<int:meal_id>', methods=['DELETE'])
+        return jsonify({
+            'message': 'Meal created successfully',
+            'meal': meal.to_dict()
+        }), HTTPStatus.CREATED
+
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+
+@app.route('/api/meals/<int:meal_id>', methods=['DELETE'])
+@jwt_required()
+@roles_required('caterer', 'admin')
 def delete_meal(meal_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
     meal = Meal.query.get_or_404(meal_id)
-    db.session.delete(meal)
-    db.session.commit()
-    return jsonify({'message': 'Meal deleted'})
+    
+    # Only the meal creator or admin can delete
+    if meal.caterer_id != current_user.id and current_user.role.name != 'admin':
+        raise ForbiddenError()
+    
+    try:
+        db.session.delete(meal)
+        db.session.commit()
+        return jsonify({'message': 'Meal deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
 
-# order
-@app.route('/orders', methods=['GET'])
-@token_required
-def get_orders(current_user):
-    orders = Order.query.filter_by(user_id=current_user.id).all()
-    return jsonify([order.to_dict() for order in orders])
-
-@app.route('/orders/<int:order_id>', methods=['GET'])
-@token_required
-def get_order(current_user, order_id):
-    order = Order.query.filter_by(id=order_id, user_id=current_user.id).first_or_404()
-    return jsonify(order.to_dict())
-
-@app.route('/orders', methods=['POST'])
-@token_required
-def create_order(current_user):
-    data = request.json
-    new_order = Order(
-        user_id=current_user.id,
-        menu_item_id=data['menu_item_id'],
-        quantity=data['quantity'],
-        total_price=data['total_price']
-    )
-    db.session.add(new_order)
-    db.session.commit()
-    return jsonify(new_order.to_dict()), 201
-
-@app.route('/orders/<int:order_id>', methods=['PUT'])
-@token_required
-def update_order(current_user, order_id):
-    order = Order.query.filter_by(id=order_id, user_id=current_user.id).first_or_404()
-    data = request.json
-    order.quantity = data.get('quantity', order.quantity)
-    order.total_price = data.get('total_price', order.total_price)
-    db.session.commit()
-    return jsonify(order.to_dict())
-
-@app.route('/orders/<int:order_id>', methods=['DELETE'])
-@token_required
-def delete_order(current_user, order_id):
-    order = Order.query.filter_by(id=order_id, user_id=current_user.id).first_or_404()
-    db.session.delete(order)
-    db.session.commit()
-    return jsonify({'message': 'Order deleted'})
-
-# Notifications
-@app.route('/notifications', methods=['GET'])
-@token_required
-def get_notifications(current_user):
-    notifications = Notification.query.filter_by(user_id=current_user.id).all()
-    return jsonify([notification.to_dict() for notification in notifications])
-
-@app.route('/notifications', methods=['POST'])
-@token_required
-def create_notification(current_user):
-    data = request.json
-    notif = Notification(
-        user_id=current_user.id,
-        message=data['message'],
-        read=False
-    )
-    db.session.add(notif)
-    db.session.commit()
-    return jsonify(notif.to_dict()), 201
-
-@app.route('/notifications/<int:notif_id>', methods=['PUT'])
-@token_required
-def update_notification(current_user, notif_id):
-    notif = Notification.query.filter_by(id=notif_id, user_id=current_user.id).first_or_404()
-    notif.read = request.json.get('read', notif.read)
-    db.session.commit()
-    return jsonify(notif.to_dict())
-
-@app.route('/notifications/<int:notif_id>', methods=['DELETE'])
-@token_required
-def delete_notification(current_user, notif_id):
-    notif = Notification.query.filter_by(id=notif_id, user_id=current_user.id).first_or_404()
-    db.session.delete(notif)
-    db.session.commit()
-    return jsonify({'message': 'Notification deleted'})
-
-# Menu
-@app.route('/menus', methods=['GET'])
+# Menu Routes
+@app.route('/api/menus', methods=['GET'])
 def get_menus():
-    menus = Menu.query.all()
-    return jsonify([menu.to_dict() for menu in menus])
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    date = request.args.get('date')
+    
+    query = Menu.query
+    
+    if date:
+        try:
+            date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+            query = query.filter(Menu.date == date_obj)
+        except ValueError:
+            raise ValidationError("Invalid date format. Use YYYY-MM-DD")
+    
+    query = query.order_by(Menu.date.desc())
+    return jsonify(paginate(query, page, per_page))
 
-@app.route('/menus/<int:menu_id>', methods=['GET'])
+@app.route('/api/menus', methods=['POST'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def create_menu():
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    data = request.get_json()
+    
+    if not data or not data.get('date'):
+        raise ValidationError("Date is required")
+    
+    try:
+        date_obj = datetime.strptime(data['date'], '%Y-%m-%d').date()
+    except ValueError:
+        raise ValidationError("Invalid date format. Use YYYY-MM-DD")
+    
+    # Check if menu for this date already exists
+    if Menu.query.filter_by(date=date_obj).first():
+        raise ValidationError("Menu for this date already exists")
+    
+    try:
+        menu = Menu(
+            date=date_obj,
+            caterer_id=current_user.id
+        )
+        db.session.add(menu)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Menu created successfully',
+            'menu': menu.to_dict()
+        }), HTTPStatus.CREATED
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+@app.route('/api/menus/<int:menu_id>', methods=['GET'])
 def get_menu(menu_id):
     menu = Menu.query.get_or_404(menu_id)
-    return jsonify(menu.to_dict())
+    return jsonify(menu.to_dict(rules=('menu_items', 'menu_items.meal')))
 
-@app.route('/menus', methods=['POST'])
-def create_menu():
-    data = request.json
-    menu = Menu(date=datetime.strptime(data['date'], "%Y-%m-%d").date())
-    db.session.add(menu)
-    db.session.commit()
-    return jsonify(menu.to_dict()), 201
-
-@app.route('/menus/<int:menu_id>', methods=['PUT'])
+@app.route('/api/menus/<int:menu_id>', methods=['PUT'])
+@jwt_required()
+@roles_required('caterer', 'admin')
 def update_menu(menu_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
     menu = Menu.query.get_or_404(menu_id)
-    data = request.json
-    if 'date' in data:
-        menu.date = datetime.strptime(data['date'], "%Y-%m-%d").date()
-    db.session.commit()
-    return jsonify(menu.to_dict())
+    
+    # Only the menu creator or admin can update
+    if menu.caterer_id != current_user.id and current_user.role.name != 'admin':
+        raise ForbiddenError()
+    
+    data = request.get_json()
+    
+    try:
+        if 'date' in data:
+            date_obj = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            
+            # Check if another menu exists with this new date
+            existing = Menu.query.filter(and_(
+                Menu.date == date_obj,
+                Menu.id != menu.id
+            )).first()
+            
+            if existing:
+                raise ValidationError("Another menu already exists for this date")
+            
+            menu.date = date_obj
+        
+        db.session.commit()
+        return jsonify({
+            'message': 'Menu updated successfully',
+            'menu': menu.to_dict()
+        })
+    except ValueError:
+        raise ValidationError("Invalid date format. Use YYYY-MM-DD")
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
 
-@app.route('/menus/<int:menu_id>', methods=['DELETE'])
+@app.route('/api/menus/<int:menu_id>', methods=['DELETE'])
+@jwt_required()
+@roles_required('caterer', 'admin')
 def delete_menu(menu_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
     menu = Menu.query.get_or_404(menu_id)
-    db.session.delete(menu)
+    
+    # Only the menu creator or admin can delete
+    if menu.caterer_id != current_user.id and current_user.role.name != 'admin':
+        raise ForbiddenError()
+    
+    try:
+        db.session.delete(menu)
+        db.session.commit()
+        return jsonify({'message': 'Menu deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+# Menu Item Routes
+@app.route('/api/menus/<int:menu_id>/items', methods=['GET'])
+def get_menu_items(menu_id):
+    menu = Menu.query.get_or_404(menu_id)
+    return jsonify([item.to_dict(rules=('meal',)) for item in menu.menu_items])
+
+@app.route('/api/menus/<int:menu_id>/items', methods=['POST'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def add_menu_item(menu_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    menu = Menu.query.get_or_404(menu_id)
+    
+    # Only the menu creator or admin can add items
+    if menu.caterer_id != current_user.id and current_user.role.name != 'admin':
+        raise ForbiddenError()
+    
+    data = request.get_json()
+    
+    if not data or not data.get('meal_id'):
+        raise ValidationError("Meal ID is required")
+    
+    meal = Meal.query.get_or_404(data['meal_id'])
+    
+    # Check if this meal is already in the menu
+    if MenuItem.query.filter_by(menu_id=menu.id, meal_id=meal.id).first():
+        raise ValidationError("This meal is already in the menu")
+    
+    try:
+        menu_item = MenuItem(
+            menu_id=menu.id,
+            meal_id=meal.id
+        )
+        db.session.add(menu_item)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Menu item added successfully',
+            'menu_item': menu_item.to_dict(rules=('meal',))
+        }), HTTPStatus.CREATED
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+@app.route('/api/menu-items/<int:item_id>', methods=['DELETE'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def remove_menu_item(item_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    menu_item = MenuItem.query.get_or_404(item_id)
+    menu = Menu.query.get_or_404(menu_item.menu_id)
+    
+    # Only the menu creator or admin can remove items
+    if menu.caterer_id != current_user.id and current_user.role.name != 'admin':
+        raise ForbiddenError()
+    
+    try:
+        db.session.delete(menu_item)
+        db.session.commit()
+        return jsonify({'message': 'Menu item removed successfully'})
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+# Order Routes
+@app.route('/api/orders', methods=['GET'])
+@jwt_required()
+def get_orders():
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    status = request.args.get('status')
+    
+    query = Order.query
+    
+    # Customers can only see their own orders
+    # Caterers can see orders for their menus
+    # Admins can see all orders
+    if current_user.role.name == 'customer':
+        query = query.filter_by(user_id=current_user.id)
+    elif current_user.role.name == 'caterer':
+        # Get all menu items for menus created by this caterer
+        menu_ids = [menu.id for menu in current_user.menus]
+        menu_item_ids = [item.id for item in MenuItem.query.filter(MenuItem.menu_id.in_(menu_ids)).all()]
+        query = query.filter(Order.menu_item_id.in_(menu_item_ids))
+    
+    if status:
+        query = query.filter_by(status=status)
+    
+    query = query.order_by(Order.timestamp.desc())
+    return jsonify(paginate(query, page, per_page))
+
+@app.route('/api/orders', methods=['POST'])
+@jwt_required()
+@roles_required('customer')
+def create_order():
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    data = request.get_json()
+    
+    if not data or not data.get('menu_item_id') or not data.get('quantity'):
+        raise ValidationError("Menu item ID and quantity are required")
+    
+    menu_item = MenuItem.query.get_or_404(data['menu_item_id'])
+    
+    try:
+        total_price = round(menu_item.meal.price * data['quantity'], 2)
+        
+        order = Order(
+            user_id=current_user.id,
+            menu_item_id=menu_item.id,
+            quantity=data['quantity'],
+            total_price=total_price,
+            status='pending'
+        )
+        db.session.add(order)
+        db.session.commit()
+        
+        # Create notification for the caterer
+        caterer = User.query.get(menu_item.menu.caterer_id)
+        if caterer:
+            notification = Notification(
+                user_id=caterer.id,
+                message=f"New order received for {menu_item.meal.name}",
+                read=False
+            )
+            db.session.add(notification)
+            db.session.commit()
+        
+        return jsonify({
+            'message': 'Order created successfully',
+            'order': order.to_dict()
+        }), HTTPStatus.CREATED
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+@app.route('/api/orders/<int:order_id>', methods=['GET'])
+@jwt_required()
+def get_order(order_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    order = Order.query.get_or_404(order_id)
+    
+    # Check if user has permission to view this order
+    if current_user.role.name == 'customer' and order.user_id != current_user.id:
+        raise ForbiddenError()
+    elif current_user.role.name == 'caterer':
+        menu_item = MenuItem.query.get(order.menu_item_id)
+        if not menu_item or menu_item.menu.caterer_id != current_user.id:
+            raise ForbiddenError()
+    
+    return jsonify(order.to_dict(rules=('menu_item', 'menu_item.meal', 'user')))
+
+@app.route('/api/orders/<int:order_id>', methods=['PUT'])
+@jwt_required()
+def update_order(order_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    order = Order.query.get_or_404(order_id)
+    
+    # Check if user has permission to update this order
+    if current_user.role.name == 'customer' and order.user_id != current_user.id:
+        raise ForbiddenError()
+    elif current_user.role.name == 'caterer':
+        menu_item = MenuItem.query.get(order.menu_item_id)
+        if not menu_item or menu_item.menu.caterer_id != current_user.id:
+            raise ForbiddenError()
+    
+    data = request.get_json()
+    
+    try:
+        if 'quantity' in data and current_user.role.name == 'customer':
+            order.quantity = data['quantity']
+            order.total_price = round(order.menu_item.meal.price * data['quantity'], 2)
+        
+        if 'status' in data and current_user.role.name in ['caterer', 'admin']:
+            order.status = data['status']
+            
+            # Create notification for the customer when status changes
+            if data['status'] in ['completed', 'cancelled']:
+                notification = Notification(
+                    user_id=order.user_id,
+                    message=f"Your order for {order.menu_item.meal.name} has been {data['status']}",
+                    read=False
+                )
+                db.session.add(notification)
+        
+        db.session.commit()
+        return jsonify({
+            'message': 'Order updated successfully',
+            'order': order.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+@app.route('/api/orders/<int:order_id>', methods=['DELETE'])
+@jwt_required()
+@roles_required('admin')
+def delete_order(order_id):
+    order = Order.query.get_or_404(order_id)
+    
+    try:
+        db.session.delete(order)
+        db.session.commit()
+        return jsonify({'message': 'Order deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+# Notification Routes
+@app.route('/api/notifications', methods=['GET'])
+@jwt_required()
+def get_notifications():
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    read = request.args.get('read', type=str)
+    
+    query = Notification.query.filter_by(user_id=current_user.id)
+    
+    if read is not None:
+        query = query.filter_by(read=read.lower() == 'true')
+    
+    query = query.order_by(Notification.created_at.desc())
+    return jsonify(paginate(query, page, per_page))
+
+@app.route('/api/notifications/<int:notification_id>', methods=['GET'])
+@jwt_required()
+def get_notification(notification_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    notification = Notification.query.get_or_404(notification_id)
+    
+    if notification.user_id != current_user.id:
+        raise ForbiddenError()
+    
+    return jsonify(notification.to_dict())
+
+@app.route('/api/notifications/<int:notification_id>', methods=['PUT'])
+@jwt_required()
+def mark_notification_as_read(notification_id):
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    notification = Notification.query.get_or_404(notification_id)
+    
+    if notification.user_id != current_user.id:
+        raise ForbiddenError()
+    
+    try:
+        notification.read = True
+        db.session.commit()
+        return jsonify(notification.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+@app.route('/api/notifications/mark-all-read', methods=['PUT'])
+@jwt_required()
+def mark_all_notifications_as_read():
+    current_user_email = get_jwt_identity()
+    current_user = User.query.filter_by(email=current_user_email).first()
+    
+    try:
+        Notification.query.filter_by(user_id=current_user.id, read=False).update({'read': True})
+        db.session.commit()
+        return jsonify({'message': 'All notifications marked as read'})
+    except Exception as e:
+        db.session.rollback()
+        raise MealAPIError(str(e))
+
+# CLI Commands
+@app.cli.command("seed")
+def seed():
+    """Seed the database with sample data."""
+    from seed import seed_data
+    seed_data()
+    click.echo("Database seeded successfully.")
+
+@app.cli.command("create-admin")
+def create_admin():
+    """Create an admin user."""
+    email = click.prompt("Enter admin email")
+    password = click.prompt("Enter admin password", hide_input=True)
+    
+    if User.query.filter_by(email=email).first():
+        click.echo("User with this email already exists.")
+        return
+    
+    hashed_password = generate_password_hash(password, method='sha256')
+    admin = User(
+        name="Admin",
+        email=email,
+        password=hashed_password,
+        role='admin'
+    )
+    db.session.add(admin)
     db.session.commit()
-    return jsonify({'message': 'Menu deleted'})
-
-# MenuItem
-@app.route('/menuitems', methods=['GET'])
-def get_menuitems():
-    items = MenuItem.query.all()
-    return jsonify([item.to_dict() for item in items])
-
-@app.route('/menuitems/<int:item_id>', methods=['GET'])
-def get_menuitem(item_id):
-    item = MenuItem.query.get_or_404(item_id)
-    return jsonify(item.to_dict())
-
-@app.route('/menuitems', methods=['POST'])
-def create_menuitem():
-    data = request.json
-    item = MenuItem(menu_id=data['menu_id'], meal_id=data['meal_id'])
-    db.session.add(item)
-    db.session.commit()
-    return jsonify(item.to_dict()), 201
-
-@app.route('/menuitems/<int:item_id>', methods=['PUT'])
-def update_menuitem(item_id):
-    item = MenuItem.query.get_or_404(item_id)
-    data = request.json
-    item.menu_id = data.get('menu_id', item.menu_id)
-    item.meal_id = data.get('meal_id', item.meal_id)
-    db.session.commit()
-    return jsonify(item.to_dict())
-
-@app.route('/menuitems/<int:item_id>', methods=['DELETE'])
-def delete_menuitem(item_id):
-    item = MenuItem.query.get_or_404(item_id)
-    db.session.delete(item)
-    db.session.commit()
-    return jsonify({'message': 'MenuItem deleted'})
-
-# Auth
-@app.route('/signup', methods=['POST'])
-def register():
-    data = request.json
-    if User.query.filter_by(email=data['email']).first():
-        return jsonify({'message': 'User already exists. Please login.'}), 400
-    hashed_password = generate_password_hash(data['password'])
-    new_user = User(public_id=str(uuid.uuid4()), name=data['name'], email=data['email'], password=hashed_password, role='customer')
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({'message': 'User registered successfully.'}), 201
-
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.json
-    email = data['email']
-    password = data['password']
-    user = User.query.filter_by(email=email).first()
-    if not user or not check_password_hash(user.password, password):
-        return jsonify({'message': 'Invalid email or password'}), 401
-    token = jwt.encode({'public_id': user.public_id, 'exp': datetime.now(timezone.utc) + timedelta(hours=1)},
-                       app.config['SECRET_KEY'], algorithm="HS256")
-    response = jsonify({'token': token})
-    response.set_cookie('jwt_token', token)
-    return response
-
-@app.route("/logout", methods=["POST"])
-@login_required
-def logout():
-    logout_user()
-    return jsonify({"message": "Logged out successfully."})
+    click.echo(f"Admin user {email} created successfully.")
 
 if __name__ == '__main__':
     app.run(debug=True)
