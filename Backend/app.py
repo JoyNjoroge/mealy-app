@@ -217,6 +217,9 @@ responses:
         db.session.rollback()
         raise MealAPIError(str(e))
 
+@app.route('/')
+def index():
+    return ("Welcome to Mealy API")
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
