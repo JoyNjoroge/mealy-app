@@ -13,15 +13,14 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy import or_, and_, func
 import cloudinary
 import cloudinary.uploader
-import sendgrid
-from sendgrid.helpers.mail import Mail
 import click
 from functools import wraps
 from http import HTTPStatus
 from models import db, User, Meal, Menu, MenuItem, Order, Notification
 from flasgger import Swagger
 from seed import seed_data
-
+import smtplib
+from email.mime.text import MIMEText
 # Load environment variables
 load_dotenv()
 
@@ -48,8 +47,7 @@ cloudinary.config(
     api_secret=os.getenv('CLOUDINARY_API_SECRET')
 )
 
-# Configure SendGrid
-sg = sendgrid.SendGridAPIClient(api_key=os.getenv('SENDGRID_API_KEY'))
+
 
 # Custom error classes
 class MealAPIError(Exception):
@@ -121,16 +119,24 @@ def roles_required(*roles):
     return wrapper
 
 # Utility functions
+
 def send_email(to_email, subject, content):
-    message = Mail(
-        from_email=os.getenv('SENDER_EMAIL'),
-        to_emails=to_email,
-        subject=subject,
-        html_content=content)
     try:
-        sg.send(message)
+        msg = MIMEText(content, 'html')
+        msg['Subject'] = subject
+        msg['From'] = os.getenv('MAIL_USERNAME')
+        msg['To'] = to_email
+
+        with smtplib.SMTP(os.getenv('MAIL_SERVER'), int(os.getenv('MAIL_PORT'))) as server:
+            server.starttls()
+            server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
+            server.send_message(msg)
+
     except Exception as e:
-        app.logger.error(f"Error sending email: {str(e)}")
+        app.logger.error(f"Email send failed: {str(e)}")
+    print("EMAIL ENV:", os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
+
+
 
 def paginate(query, page, per_page):
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
