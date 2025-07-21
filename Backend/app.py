@@ -19,12 +19,15 @@ import click
 from functools import wraps
 from http import HTTPStatus
 from models import db, User, Meal, Menu, MenuItem, Order, Notification
+from flasgger import Swagger
+from seed import seed_data
 
 # Load environment variables
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+swagger = Swagger(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
@@ -141,6 +144,36 @@ def paginate(query, page, per_page):
 # Auth Routes
 @app.route('/api/auth/register', methods=['POST'])
 def register():
+    """
+Register a new user
+---
+tags:
+  - Auth
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: string
+        email:
+          type: string
+          description: string
+        password:
+          type: string
+          description: string
+        role:
+          type: string
+          description: string (customer, caterer, admin)
+responses:
+  201:
+    description: User created successfully
+  422:
+    description: Validation error
+"""
     data = request.get_json()
     
     if not data or not data.get('email') or not data.get('password'):
@@ -181,8 +214,32 @@ def register():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
+    """
+Log in and get JWT token
+---
+tags:
+  - Auth
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        email:
+          type: string
+          description: string
+        password:
+          type: string
+          description: string
+responses:
+  200:
+    description: Login successful
+  401:
+    description: Invalid credentials
+"""
     data = request.get_json()
-    
+
     if not data or not data.get('email') or not data.get('password'):
         raise ValidationError("Email and password are required")
     
@@ -226,6 +283,45 @@ def get_user(user_id):
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 @jwt_required()
 def update_user(user_id):
+    """
+Update a user's profile (self or admin only)
+---
+tags:
+  - Users
+security:
+  - BearerAuth: []
+parameters:
+  - name: user_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the user to update
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+          email:
+            type: string
+          password:
+            type: string
+          role:
+            type: string
+            description: Only admins can change the role
+responses:
+  200:
+    description: User updated successfully
+  403:
+    description: Forbidden – You can only update your own profile (unless you're admin)
+  404:
+    description: User not found
+  422:
+    description: Validation error (e.g. email already exists)
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -262,6 +358,26 @@ def update_user(user_id):
 @jwt_required()
 @roles_required('admin')
 def delete_user(user_id):
+    """
+Delete a user by ID (admin only)
+---
+tags:
+  - Users
+parameters:
+  - name: user_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the user to delete
+responses:
+  200:
+    description: User deleted successfully
+  404:
+    description: User not found
+  403:
+    description: Forbidden – requires admin role
+"""
+
     user = User.query.get_or_404(user_id)
     
     try:
@@ -293,6 +409,31 @@ def get_meals():
 
 @app.route('/api/meals/<int:meal_id>', methods=['GET'])
 def get_meal(meal_id):
+    """
+Get all meals
+---
+tags:
+  - Meals
+parameters:
+  - name: page
+    in: query
+    type: int
+    required: false
+    description: int
+  - name: per_page
+    in: query
+    type: int
+    required: false
+    description: int
+  - name: search
+    in: query
+    type: string
+    required: false
+    description: string
+responses:
+  200:
+    description: List of meals
+"""
     meal = Meal.query.get_or_404(meal_id)
     return jsonify(meal.to_dict())
 
@@ -300,6 +441,41 @@ def get_meal(meal_id):
 @jwt_required()
 @roles_required('caterer', 'admin') 
 def create_meal():
+    """
+Create a new meal (requires caterer/admin)
+---
+tags:
+  - Meals
+consumes:
+  - multipart/form-data
+parameters:
+  - name: name
+    in: formData
+    type: string
+    required: true
+    description: string
+  - name: description
+    in: formData
+    type: string
+    required: true
+    description: string
+  - name: price
+    in: formData
+    type: string
+    required: true
+    description: number
+  - name: image
+    in: formData
+    type: file
+    required: true
+    description: file
+responses:
+  201:
+    description: Meal created successfully
+  422:
+    description: Validation error
+"""
+
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
 
@@ -340,6 +516,28 @@ def create_meal():
 @jwt_required()
 @roles_required('caterer', 'admin')
 def delete_meal(meal_id):
+    """
+Delete a meal by ID (admin or meal creator only)
+---
+tags:
+  - Meals
+security:
+  - BearerAuth: []
+parameters:
+  - name: meal_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the meal to delete
+responses:
+  200:
+    description: Meal deleted successfully
+  403:
+    description: Forbidden – only admin or the meal creator can delete
+  404:
+    description: Meal not found
+"""
+
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -360,6 +558,21 @@ def delete_meal(meal_id):
 # Menu Routes
 @app.route('/api/menus', methods=['GET'])
 def get_menus():
+    """
+Get all menus
+---
+tags:
+  - Menus
+parameters:
+  - name: date
+    in: query
+    type: string
+    required: false
+    description: string
+responses:
+  200:
+    description: List of menus
+"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     date = request.args.get('date')
@@ -380,6 +593,27 @@ def get_menus():
 @jwt_required()
 @roles_required('caterer', 'admin')
 def create_menu():
+    """
+Create a new menu (caterer/admin)
+---
+tags:
+  - Menus
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        date:
+          type: string
+          description: string (YYYY-MM-DD)
+responses:
+  201:
+    description: Menu created
+  422:
+    description: Validation error
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -422,6 +656,40 @@ def get_menu(menu_id):
 @jwt_required()
 @roles_required('caterer', 'admin')
 def update_menu(menu_id):
+    """
+Update a menu by ID (caterer or admin only)
+---
+tags:
+  - Menus
+security:
+  - BearerAuth: []
+parameters:
+  - name: menu_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the menu to update
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          date:
+            type: string
+            format: date
+            description: New date for the menu (YYYY-MM-DD)
+responses:
+  200:
+    description: Menu updated successfully
+  403:
+    description: Forbidden – You must be the menu creator or an admin
+  404:
+    description: Menu not found
+  422:
+    description: Validation error (e.g., date format or conflict)
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -463,6 +731,27 @@ def update_menu(menu_id):
 @jwt_required()
 @roles_required('caterer', 'admin')
 def delete_menu(menu_id):
+    """
+Delete a menu by ID (admin or caterer only)
+---
+tags:
+  - Menus
+security:
+  - BearerAuth: []
+parameters:
+  - name: menu_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the menu to delete
+responses:
+  200:
+    description: Menu deleted successfully
+  403:
+    description: Forbidden – only admin or the menu creator can delete
+  404:
+    description: Menu not found
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -552,6 +841,31 @@ def remove_menu_item(item_id):
 @app.route('/api/orders', methods=['GET'])
 @jwt_required()
 def get_orders():
+    """
+Get all orders for the logged-in user
+---
+tags:
+  - Orders
+parameters:
+  - name: page
+    in: query
+    type: int
+    required: false
+    description: int
+  - name: per_page
+    in: query
+    type: int
+    required: false
+    description: int
+  - name: status
+    in: query
+    type: string
+    required: false
+    description: string
+responses:
+  200:
+    description: Paginated list of orders
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -582,6 +896,32 @@ def get_orders():
 @jwt_required()
 @roles_required('customer')
 def create_order():
+    """
+Create a new order (requires customer)
+---
+tags:
+  - Orders
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      properties:
+        menu_item_id:
+          type: string
+          description: int
+        quantity:
+          type: string
+          description: int
+responses:
+  201:
+    description: Order created successfully
+  403:
+    description: Forbidden
+  422:
+    description: Validation error
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -645,6 +985,43 @@ def get_order(order_id):
 @app.route('/api/orders/<int:order_id>', methods=['PUT'])
 @jwt_required()
 def update_order(order_id):
+    """
+Update an order by ID (customer updates quantity, caterer/admin updates status)
+---
+tags:
+  - Orders
+security:
+  - BearerAuth: []
+parameters:
+  - name: order_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the order to update
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          quantity:
+            type: integer
+            description: New quantity for the order (customers only)
+          status:
+            type: string
+            enum: [pending, completed, cancelled]
+            description: Order status (caterer/admin only)
+responses:
+  200:
+    description: Order updated successfully
+  403:
+    description: Forbidden – You don't have permission to update this order
+  404:
+    description: Order not found
+  422:
+    description: Validation or processing error
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -690,6 +1067,28 @@ def update_order(order_id):
 @jwt_required()
 @roles_required('admin')
 def delete_order(order_id):
+    """
+Delete an order by ID (admin only)
+---
+tags:
+  - Orders
+security:
+  - BearerAuth: []
+parameters:
+  - name: order_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the order to delete
+responses:
+  200:
+    description: Order deleted successfully
+  403:
+    description: Forbidden – requires admin role
+  404:
+    description: Order not found
+"""
+
     order = Order.query.get_or_404(order_id)
     
     try:
@@ -704,6 +1103,31 @@ def delete_order(order_id):
 @app.route('/api/notifications', methods=['GET'])
 @jwt_required()
 def get_notifications():
+    """
+Get current user's notifications
+---
+tags:
+  - Notifications
+parameters:
+  - name: page
+    in: query
+    type: int
+    required: false
+    description: int
+  - name: per_page
+    in: query
+    type: int
+    required: false
+    description: int
+  - name: read
+    in: query
+    type: bool
+    required: false
+    description: bool
+responses:
+  200:
+    description: Paginated list of notifications
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -735,6 +1159,28 @@ def get_notification(notification_id):
 @app.route('/api/notifications/<int:notification_id>', methods=['PUT'])
 @jwt_required()
 def mark_notification_as_read(notification_id):
+    """
+Mark a specific notification as read
+---
+tags:
+  - Notifications
+security:
+  - BearerAuth: []
+parameters:
+  - name: notification_id
+    in: path
+    type: integer
+    required: true
+    description: The ID of the notification to mark as read
+responses:
+  200:
+    description: Notification marked as read
+  403:
+    description: Forbidden – you can only mark your own notifications
+  404:
+    description: Notification not found
+"""
+
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
@@ -754,6 +1200,21 @@ def mark_notification_as_read(notification_id):
 @app.route('/api/notifications/mark-all-read', methods=['PUT'])
 @jwt_required()
 def mark_all_notifications_as_read():
+    """
+Mark all unread notifications for the logged-in user as read
+---
+tags:
+  - Notifications
+security:
+  - BearerAuth: []
+responses:
+  200:
+    description: All notifications marked as read
+  401:
+    description: Unauthorized – login required
+  500:
+    description: Internal server error
+"""
     current_user_email = get_jwt_identity()
     current_user = User.query.filter_by(email=current_user_email).first()
     
