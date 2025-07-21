@@ -25,7 +25,8 @@ class RegisterTestCase(unittest.TestCase):
             'role': 'admin'
         })
 
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 201)pip --version
+
         data = json.loads(response.data)
         self.assertIn('access_token', data)
         self.assertEqual(data['user']['email'], 'joey@example.com')
