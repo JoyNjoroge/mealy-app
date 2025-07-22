@@ -1,6 +1,22 @@
 services:
   - type: web
-    name: ombudsys-backend
-    env: python
+    name: mealy-backend
+    env: docker
     plan: free
-    startCommand: gunicorn app:app
+    autoDeploy: true
+    region: oregon
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromService:
+          type: postgres
+          name: mealy-db
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        value: your_super_secret_key_here
+
+databases:
+  - name: mealy-db
+    plan: free
