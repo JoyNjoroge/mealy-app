@@ -1,45 +1,30 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import React from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const Index = () => {
-  const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      // Redirect authenticated users to their dashboard
-      switch (user.role) {
-        case 'customer':
-          navigate('/customer');
-          break;
-        case 'caterer':
-          navigate('/caterer');
-          break;
-        case 'admin':
-          navigate('/admin');
-          break;
-        default:
-          break;
-      }
-    }
-  }, [user, isLoading, navigate]);
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
-  // This component should not render for authenticated users
-  // as they get redirected above
-  return null;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Redirect to appropriate dashboard based on user role
+  if (user?.role === 'customer') {
+    return <Navigate to="/customer" replace />;
+  } else if (user?.role === 'caterer' || user?.role === 'admin') {
+    return <Navigate to="/caterer" replace />;
+  } else {
+    return <Navigate to="/login" replace />;
+  }
 };
 
 export default Index;

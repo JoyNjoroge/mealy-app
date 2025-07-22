@@ -1,265 +1,184 @@
-import { useState, useEffect } from "react";
-import { Header } from "@/components/layout/Header";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { apiService, endpoints } from "@/services/api";
-import { useToast } from "@/hooks/use-toast";
-import { 
-  Calendar, 
-  Clock, 
-  DollarSign, 
-  ShoppingCart, 
-  Star,
-  ChefHat
-} from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import Header from '@/components/layout/Header';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import apiService from '@/services/api';
+import { toast } from '@/hooks/use-toast';
 
-interface Meal {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  image_url?: string;
-  rating?: number;
-}
-
-interface Menu {
-  id: number;
-  date: string;
-  meals: Meal[];
-  is_active: boolean;
-}
-
-interface Order {
-  id: number;
-  meal_id: number;
-  meal_name: string;
-  quantity: number;
-  total_price: number;
-  status: string;
-  order_date: string;
-}
-
-export const CustomerDashboard = () => {
-  const [todaysMenu, setTodaysMenu] = useState<Menu | null>(null);
-  const [myOrders, setMyOrders] = useState<Order[]>([]);
+const CustomerDashboard = () => {
+  const [menu, setMenu] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isOrderingLoading, setIsOrderingLoading] = useState<number | null>(null);
-  const { toast } = useToast();
+  const [isOrdering, setIsOrdering] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadDashboardData();
   }, []);
 
-  const loadData = async () => {
+  const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      const [menuResponse, ordersResponse] = await Promise.all([
-        apiService.get<Menu>(endpoints.todaysMenu),
-        apiService.get<Order[]>(endpoints.myOrders)
+      const [menuData, ordersData] = await Promise.all([
+        apiService.getTodaysMenu(),
+        apiService.getOrderHistory(),
       ]);
-      
-      setTodaysMenu(menuResponse);
-      setMyOrders(ordersResponse);
-    } catch (error: any) {
-      toast({
-        title: "Error loading data",
-        description: error.message,
-        variant: "destructive",
-      });
+      setMenu(menuData.meals || []);
+      setOrders(ordersData.orders || []);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOrderMeal = async (mealId: number, mealName: string, price: number) => {
+  const placeOrder = async (mealId) => {
     try {
-      setIsOrderingLoading(mealId);
-      await apiService.post(endpoints.orders, {
-        meal_id: mealId,
-        quantity: 1
-      });
-      
+      setIsOrdering(true);
+      await apiService.createOrder({ meal_id: mealId });
       toast({
         title: "Order placed!",
-        description: `Your order for ${mealName} has been placed successfully.`,
+        description: "Your meal has been ordered successfully",
       });
-      
-      // Reload orders
-      loadData();
-    } catch (error: any) {
-      toast({
-        title: "Order failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      loadDashboardData(); // Refresh data
+    } catch (error) {
+      console.error('Failed to place order:', error);
     } finally {
-      setIsOrderingLoading(null);
+      setIsOrdering(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'pending': return 'warning';
-      case 'confirmed': return 'info';
-      case 'preparing': return 'secondary';
-      case 'ready': return 'success';
-      case 'delivered': return 'success';
-      case 'cancelled': return 'destructive';
-      default: return 'secondary';
+  const cancelOrder = async (orderId) => {
+    try {
+      await apiService.deleteOrder(orderId);
+      toast({
+        title: "Order cancelled",
+        description: "Your order has been cancelled",
+        variant: "destructive",
+      });
+      loadDashboardData(); // Refresh data
+    } catch (error) {
+      console.error('Failed to cancel order:', error);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-gradient-background">
         <Header title="Customer Dashboard" />
         <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <LoadingSpinner size="lg" />
-            <p className="mt-4 text-muted-foreground">Loading your dashboard...</p>
-          </div>
+          <LoadingSpinner size="lg" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header title="Customer Dashboard" />
+    <div className="min-h-screen bg-gradient-background">
+      <Header title="Customer Dashboard" notificationCount={0} />
       
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid gap-8">
-          {/* Welcome Section */}
-          <div className="animate-fade-in">
-            <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
-            <p className="text-muted-foreground">Discover today's delicious meals and manage your orders.</p>
-          </div>
-
-          {/* Today's Menu */}
-          <div className="animate-slide-up">
-            <div className="flex items-center space-x-2 mb-6">
-              <Calendar className="h-6 w-6 text-primary" />
-              <h2 className="text-2xl font-semibold">Today's Menu</h2>
-              {todaysMenu && (
-                <Badge variant="secondary" className="ml-2">
-                  {new Date(todaysMenu.date).toLocaleDateString()}
-                </Badge>
-              )}
-            </div>
-
-            {todaysMenu && todaysMenu.meals.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {todaysMenu.meals.map((meal) => (
-                  <Card key={meal.id} className="card-menu animate-bounce-in">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{meal.name}</CardTitle>
-                          <CardDescription className="mt-1">
-                            {meal.description}
-                          </CardDescription>
-                        </div>
-                        <Badge variant="outline" className="ml-2">
-                          {meal.category}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Today's Menu */}
+        <Card className="shadow-card animate-fade-in">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <span>🍽️</span>
+              <span>Today's Menu</span>
+            </CardTitle>
+            <CardDescription>
+              Fresh meals available for today
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {menu.length === 0 ? (
+              <div className="text-center py-8">
+                <span className="text-4xl">😔</span>
+                <p className="mt-2 text-muted-foreground">No menu available today</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {menu.map((meal) => (
+                  <Card key={meal.id} className="border hover:shadow-soft transition-smooth">
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-lg mb-2">{meal.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-3">{meal.description}</p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <DollarSign className="h-5 w-5 text-success" />
-                          <span className="text-2xl font-bold text-success">
-                            ${meal.price.toFixed(2)}
-                          </span>
+                          <span className="font-bold text-primary">₦{meal.price}</span>
+                          <Badge variant="secondary">{meal.category}</Badge>
                         </div>
-                        {meal.rating && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-4 w-4 text-accent fill-current" />
-                            <span className="text-sm font-medium">{meal.rating}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button 
-                        className="w-full btn-primary"
-                        onClick={() => handleOrderMeal(meal.id, meal.name, meal.price)}
-                        disabled={isOrderingLoading === meal.id}
-                      >
-                        {isOrderingLoading === meal.id ? (
-                          <LoadingSpinner size="sm" />
-                        ) : (
-                          <>
-                            <ShoppingCart className="mr-2 h-4 w-4" />
-                            Order Now
-                          </>
-                        )}
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card className="card-elegant">
-                <CardContent className="py-12 text-center">
-                  <ChefHat className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No menu available</h3>
-                  <p className="text-muted-foreground">
-                    Today's menu hasn't been set yet. Check back later!
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Recent Orders */}
-          <div className="animate-slide-up">
-            <div className="flex items-center space-x-2 mb-6">
-              <Clock className="h-6 w-6 text-primary" />
-              <h2 className="text-2xl font-semibold">Recent Orders</h2>
-            </div>
-
-            {myOrders.length > 0 ? (
-              <div className="grid gap-4">
-                {myOrders.slice(0, 5).map((order) => (
-                  <Card key={order.id} className="card-elegant">
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="font-semibold">{order.meal_name}</h3>
-                            <Badge variant={getStatusColor(order.status) as any}>
-                              {order.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
-                            <span>Qty: {order.quantity}</span>
-                            <span>${order.total_price.toFixed(2)}</span>
-                            <span>{new Date(order.order_date).toLocaleDateString()}</span>
-                          </div>
-                        </div>
+                        <Button
+                          onClick={() => placeOrder(meal.id)}
+                          disabled={isOrdering}
+                          className="bg-gradient-primary hover:shadow-glow transition-smooth"
+                          size="sm"
+                        >
+                          {isOrdering ? <LoadingSpinner size="sm" /> : 'Order Now'}
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-            ) : (
-              <Card className="card-elegant">
-                <CardContent className="py-12 text-center">
-                  <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No orders yet</h3>
-                  <p className="text-muted-foreground">
-                    Place your first order from today's menu above!
-                  </p>
-                </CardContent>
-              </Card>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Orders */}
+        <Card className="shadow-card animate-fade-in">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <span>📋</span>
+              <span>Your Orders</span>
+            </CardTitle>
+            <CardDescription>
+              Track your recent meal orders
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {orders.length === 0 ? (
+              <div className="text-center py-8">
+                <span className="text-4xl">📝</span>
+                <p className="mt-2 text-muted-foreground">No orders yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {orders.slice(0, 5).map((order) => (
+                  <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-smooth">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{order.meal_name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(order.created_at).toLocaleDateString()} • ₦{order.total_price}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={
+                        order.status === 'completed' ? 'default' :
+                        order.status === 'pending' ? 'secondary' : 'destructive'
+                      }>
+                        {order.status}
+                      </Badge>
+                      {order.status === 'pending' && (
+                        <Button
+                          onClick={() => cancelOrder(order.id)}
+                          variant="outline"
+                          size="sm"
+                          className="hover:bg-destructive hover:text-destructive-foreground transition-smooth"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 };
+
+export default CustomerDashboard;

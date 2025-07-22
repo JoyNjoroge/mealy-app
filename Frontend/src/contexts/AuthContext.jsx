@@ -1,13 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { apiService } from '@/services/api';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
-const AuthContext = createContext(undefined);
+const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
@@ -15,139 +13,123 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Initialize auth state from localStorage
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
     
-    if (savedToken && savedUser) {
-      try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-        apiService.setAuthToken(savedToken);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      setUser(JSON.parse(storedUser));
     }
-    
     setIsLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (credentials) => {
     try {
-      setIsLoading(true);
-      const response = await apiService.post('/auth/login', { email, password });
-      
-      if (response.token && response.user) {
-        setToken(response.token);
-        setUser(response.user);
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        apiService.setAuthToken(response.token);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setToken(data.token);
+        setUser(data.user);
         
         toast({
           title: "Welcome back!",
-          description: `Logged in as ${response.user.role}`,
+          description: `Logged in as ${data.user.role}`,
         });
-
-        // Redirect based on role
-        const role = response.user.role;
-        if (role === 'customer') {
-          navigate('/customer');
-        } else if (role === 'caterer') {
-          navigate('/caterer');
-        } else if (role === 'admin') {
-          navigate('/admin');
-        }
         
-        return true;
+        return { success: true, user: data.user };
+      } else {
+        toast({
+          title: "Login failed",
+          description: data.message || "Invalid credentials",
+          variant: "destructive",
+        });
+        return { success: false, message: data.message };
       }
-      
-      return false;
     } catch (error) {
       toast({
-        title: "Login failed",
-        description: error.message || "Invalid credentials",
+        title: "Login error",
+        description: "Unable to connect to server",
         variant: "destructive",
       });
-      return false;
-    } finally {
-      setIsLoading(false);
+      return { success: false, message: "Network error" };
     }
   };
 
-  const register = async (email, password, role) => {
+  const register = async (userData) => {
     try {
-      setIsLoading(true);
-      const response = await apiService.post('/auth/register', { email, password, role });
-      
-      if (response.token && response.user) {
-        setToken(response.token);
-        setUser(response.user);
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        apiService.setAuthToken(response.token);
-        
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
         toast({
           title: "Account created!",
-          description: `Welcome to Mealy, ${response.user.role}`,
+          description: "Please log in with your credentials",
         });
-
-        // Redirect based on role
-        const userRole = response.user.role;
-        if (userRole === 'customer') {
-          navigate('/customer');
-        } else if (userRole === 'caterer') {
-          navigate('/caterer');
-        } else if (userRole === 'admin') {
-          navigate('/admin');
-        }
-        
-        return true;
+        return { success: true };
+      } else {
+        toast({
+          title: "Registration failed",
+          description: data.message || "Unable to create account",
+          variant: "destructive",
+        });
+        return { success: false, message: data.message };
       }
-      
-      return false;
     } catch (error) {
       toast({
-        title: "Registration failed",
-        description: error.message || "Please try again",
+        title: "Registration error",
+        description: "Unable to connect to server",
         variant: "destructive",
       });
-      return false;
-    } finally {
-      setIsLoading(false);
+      return { success: false, message: "Network error" };
     }
   };
 
   const logout = () => {
-    setUser(null);
-    setToken(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    apiService.clearAuthToken();
+    setToken(null);
+    setUser(null);
     
     toast({
       title: "Logged out",
-      description: "See you next time!",
+      description: "Come back soon!",
     });
-    
-    navigate('/');
+  };
+
+  const getAuthHeaders = () => {
+    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
   const value = {
     user,
     token,
+    isLoading,
     login,
     register,
     logout,
-    isLoading,
+    getAuthHeaders,
+    isAuthenticated: !!token && !!user,
   };
 
   return (

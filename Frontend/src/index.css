@@ -2,74 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mealy Food Ordering App - Design System
-All colors MUST be HSL. Food-themed vibrant palette.
-*/
+/* Mealy Food Ordering App Design System - All colors MUST be HSL */
 
 @layer base {
   :root {
-    /* Base colors - warm cream background */
-    --background: 45 40% 98%;
-    --foreground: 25 25% 15%;
-
-    /* Card styling */
-    --card: 45 40% 96%;
-    --card-foreground: 25 25% 15%;
-
-    /* Popover styling */
-    --popover: 45 40% 98%;
-    --popover-foreground: 25 25% 15%;
-
-    /* Primary - vibrant orange for food theme */
-    --primary: 25 95% 60%;
-    --primary-foreground: 45 40% 98%;
-    --primary-hover: 25 95% 55%;
-
-    /* Secondary - warm green for fresh ingredients */
-    --secondary: 85 35% 65%;
-    --secondary-foreground: 25 25% 15%;
-
-    /* Muted tones */
-    --muted: 45 20% 92%;
-    --muted-foreground: 25 15% 45%;
-
-    /* Accent - golden yellow */
-    --accent: 45 95% 70%;
-    --accent-foreground: 25 25% 15%;
-
-    /* Destructive - red for errors */
-    --destructive: 0 85% 60%;
-    --destructive-foreground: 45 40% 98%;
-
-    /* Borders and inputs */
-    --border: 45 25% 88%;
-    --input: 45 25% 88%;
-    --ring: 25 95% 60%;
-
-    /* Border radius */
+    /* Food-inspired warm color palette */
+    --background: 20 15% 98%;
+    --foreground: 24 9.8% 10%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 24 9.8% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 9.8% 10%;
+    
+    /* Primary: Warm orange-red for food apps */
+    --primary: 16 85% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 16 85% 65%;
+    --primary-glow: 16 85% 75%;
+    
+    /* Secondary: Complementary warm tones */
+    --secondary: 39 85% 60%;
+    --secondary-foreground: 24 9.8% 10%;
+    
+    --muted: 20 10% 95%;
+    --muted-foreground: 24 5.4% 63.9%;
+    
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 20 5.9% 90%;
+    --input: 20 5.9% 90%;
+    --ring: 16 85% 55%;
+    
     --radius: 0.75rem;
-
-    /* Food-themed custom colors */
-    --success: 120 60% 50%;
-    --success-foreground: 45 40% 98%;
-    --warning: 35 85% 55%;
-    --warning-foreground: 45 40% 98%;
-    --info: 200 80% 55%;
-    --info-foreground: 45 40% 98%;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(25 95% 60%), hsl(35 85% 55%));
-    --gradient-secondary: linear-gradient(135deg, hsl(85 35% 65%), hsl(120 60% 50%));
-    --gradient-hero: linear-gradient(135deg, hsl(25 95% 60% / 0.9), hsl(35 85% 55% / 0.9));
-
-    /* Shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(25 95% 60% / 0.2);
-    --shadow-card: 0 4px 20px -4px hsl(25 25% 15% / 0.1);
-    --shadow-button: 0 2px 8px -2px hsl(25 95% 60% / 0.3);
-
-    /* Animations */
+    
+    /* Food app specific colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Beautiful gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    --gradient-warm: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    --gradient-success: linear-gradient(135deg, hsl(var(--accent)), hsl(142 76% 46%));
+    --gradient-background: linear-gradient(180deg, hsl(var(--background)), hsl(20 20% 96%));
+    
+    /* Elegant shadows */
+    --shadow-soft: 0 2px 15px -3px hsl(var(--primary) / 0.15);
+    --shadow-glow: 0 0 20px hsl(var(--primary-glow) / 0.3);
+    --shadow-card: 0 4px 25px -5px hsl(24 9.8% 10% / 0.1);
+    
+    /* Smooth transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --sidebar-background: 0 0% 98%;
 
@@ -89,35 +80,41 @@ All colors MUST be HSL. Food-themed vibrant palette.
   }
 
   .dark {
-    /* Dark theme - rich, warm tones */
-    --background: 25 15% 8%;
-    --foreground: 45 30% 92%;
-
-    --card: 25 20% 12%;
-    --card-foreground: 45 30% 92%;
-
-    --popover: 25 20% 12%;
-    --popover-foreground: 45 30% 92%;
-
-    --primary: 25 95% 65%;
-    --primary-foreground: 25 15% 8%;
-    --primary-hover: 25 95% 70%;
-
-    --secondary: 85 25% 35%;
-    --secondary-foreground: 45 30% 92%;
-
-    --muted: 25 15% 18%;
-    --muted-foreground: 45 15% 65%;
-
-    --accent: 45 85% 60%;
-    --accent-foreground: 25 15% 8%;
-
-    --destructive: 0 75% 55%;
-    --destructive-foreground: 45 30% 92%;
-
-    --border: 25 15% 18%;
-    --input: 25 15% 18%;
-    --ring: 25 95% 65%;
+    /* Dark mode with warm food app colors */
+    --background: 24 9.8% 8%;
+    --foreground: 20 15% 95%;
+    
+    --card: 24 9.8% 10%;
+    --card-foreground: 20 15% 95%;
+    
+    --popover: 24 9.8% 10%;
+    --popover-foreground: 20 15% 95%;
+    
+    --primary: 16 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 16 85% 70%;
+    --primary-glow: 16 85% 80%;
+    
+    --secondary: 39 85% 65%;
+    --secondary-foreground: 24 9.8% 8%;
+    
+    --muted: 24 9.8% 15%;
+    --muted-foreground: 24 5.4% 63.9%;
+    
+    --accent: 142 76% 40%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 24 9.8% 15%;
+    --input: 24 9.8% 15%;
+    --ring: 16 85% 60%;
+    
+    --success: 142 76% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 52%;
+    --warning-foreground: 0 0% 100%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -135,111 +132,6 @@ All colors MUST be HSL. Food-themed vibrant palette.
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
-
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  ::-webkit-scrollbar-track {
-    @apply bg-muted;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-primary/50;
-  }
-}
-
-@layer components {
-  /* Button variants */
-  .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg;
-    transition: var(--transition-smooth);
-  }
-
-  .btn-secondary {
-    @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-md hover:shadow-lg;
-    transition: var(--transition-smooth);
-  }
-
-  .btn-success {
-    @apply bg-success text-success-foreground hover:bg-success/90 shadow-md hover:shadow-lg;
-    transition: var(--transition-smooth);
-  }
-
-  /* Card variants */
-  .card-elegant {
-    @apply bg-card border border-border rounded-xl shadow-lg hover:shadow-xl;
-    box-shadow: var(--shadow-card);
-    transition: var(--transition-smooth);
-  }
-
-  .card-menu {
-    @apply card-elegant hover:scale-105 cursor-pointer;
-    transition: var(--transition-bounce);
-  }
-
-  /* Gradient backgrounds */
-  .bg-gradient-primary {
-    background: var(--gradient-primary);
-  }
-
-  .bg-gradient-secondary {
-    background: var(--gradient-secondary);
-  }
-
-  .bg-gradient-hero {
-    background: var(--gradient-hero);
-  }
-
-  /* Animations */
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-in-out;
-  }
-
-  .animate-slide-up {
-    animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .animate-bounce-in {
-    animation: bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes bounceIn {
-  from {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
+    @apply bg-background text-foreground;
   }
 }

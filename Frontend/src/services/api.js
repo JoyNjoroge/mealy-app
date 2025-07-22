@@ -1,116 +1,116 @@
+import { toast } from '@/hooks/use-toast';
+
 class ApiService {
-  constructor(baseUrl = '/api') {
-    this.baseUrl = baseUrl;
-    this.authToken = null;
+  constructor() {
+    this.baseURL = '/api';
   }
 
-  setAuthToken(token) {
-    this.authToken = token;
-  }
-
-  clearAuthToken() {
-    this.authToken = null;
+  getAuthHeaders() {
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(options.headers),
-    };
-
-    if (this.authToken) {
-      headers.Authorization = `Bearer ${this.authToken}`;
-    }
-
+    const url = `${this.baseURL}${endpoint}`;
     const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+        ...options.headers,
+      },
       ...options,
-      headers,
     };
 
     try {
       const response = await fetch(url, config);
-      
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP ${response.status}`);
+        throw new Error(data.message || 'Request failed');
       }
 
-      const data = await response.json();
       return data;
     } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Network error occurred');
+      console.error('API Request failed:', error);
+      toast({
+        title: "Request failed",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+      throw error;
     }
   }
 
-  // GET request
-  async get(endpoint) {
-    return this.request(endpoint, { method: 'GET' });
+  // Meals
+  async getMeals() {
+    return this.request('/meals');
   }
 
-  // POST request
-  async post(endpoint, data) {
-    return this.request(endpoint, {
+  async createMeal(mealData) {
+    return this.request('/meals', {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: JSON.stringify(mealData),
     });
   }
 
-  // PUT request
-  async put(endpoint, data) {
-    return this.request(endpoint, {
+  async updateMeal(mealId, mealData) {
+    return this.request(`/meals/${mealId}`, {
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: JSON.stringify(mealData),
     });
   }
 
-  // DELETE request
-  async delete(endpoint) {
-    return this.request(endpoint, { method: 'DELETE' });
+  async deleteMeal(mealId) {
+    return this.request(`/meals/${mealId}`, {
+      method: 'DELETE',
+    });
   }
 
-  // PATCH request
-  async patch(endpoint, data) {
-    return this.request(endpoint, {
-      method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
+  // Menu
+  async getTodaysMenu() {
+    return this.request('/menu/today');
+  }
+
+  async createMenu(menuData) {
+    return this.request('/menu', {
+      method: 'POST',
+      body: JSON.stringify(menuData),
     });
+  }
+
+  // Orders
+  async getOrders() {
+    return this.request('/orders');
+  }
+
+  async createOrder(orderData) {
+    return this.request('/orders', {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    });
+  }
+
+  async updateOrder(orderId, orderData) {
+    return this.request(`/orders/${orderId}`, {
+      method: 'PUT',
+      body: JSON.stringify(orderData),
+    });
+  }
+
+  async deleteOrder(orderId) {
+    return this.request(`/orders/${orderId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getOrderHistory() {
+    return this.request('/orders/history');
+  }
+
+  // Revenue
+  async getDailyRevenue(date) {
+    return this.request(`/revenue/daily?date=${date}`);
   }
 }
 
-export const apiService = new ApiService();
-
-// API endpoint helpers
-export const endpoints = {
-  // Auth
-  login: '/auth/login',
-  register: '/auth/register',
-  profile: '/auth/profile',
-  
-  // Meals
-  meals: '/meals',
-  meal: (id) => `/meals/${id}`,
-  
-  // Menus
-  menus: '/menus',
-  todaysMenu: '/menus/today',
-  menu: (id) => `/menus/${id}`,
-  
-  // Orders
-  orders: '/orders',
-  order: (id) => `/orders/${id}`,
-  myOrders: '/orders/my',
-  
-  // Admin/Caterer specific
-  allOrders: '/orders/all',
-  revenue: '/orders/revenue',
-  orderHistory: '/orders/history',
-  
-  // Notifications
-  notifications: '/notifications',
-  markNotificationRead: (id) => `/notifications/${id}/read`,
-};
+export default new ApiService();

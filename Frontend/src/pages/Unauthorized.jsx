@@ -1,41 +1,36 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, Home } from "lucide-react";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export const Unauthorized = () => {
-  const { user } = useAuth();
-
-  const getRedirectPath = () => {
-    if (!user) return '/';
-    switch (user.role) {
-      case 'customer': return '/customer';
-      case 'caterer': return '/caterer';
-      case 'admin': return '/admin';
-      default: return '/';
-    }
-  };
-
+const Unauthorized = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="card-elegant max-w-md w-full animate-fade-in">
-        <CardContent className="py-12 text-center">
-          <AlertTriangle className="mx-auto h-16 w-16 text-warning mb-6" />
-          <h1 className="text-3xl font-bold mb-4">Access Denied</h1>
-          <p className="text-muted-foreground mb-6">
-            You don't have permission to access this page. Please contact your administrator if you believe this is an error.
-          </p>
-          <div className="space-y-3">
-            <Button asChild className="btn-primary w-full">
-              <Link to={getRedirectPath()}>
-                <Home className="mr-2 h-4 w-4" />
-                Go to Dashboard
-              </Link>
-            </Button>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-background px-4">
+      <Card className="w-full max-w-md shadow-card animate-fade-in text-center">
+        <CardHeader className="space-y-4">
+          <div className="mx-auto w-16 h-16 bg-gradient-warm rounded-full flex items-center justify-center">
+            <span className="text-2xl">🚫</span>
           </div>
+          <CardTitle className="text-2xl font-bold text-destructive">
+            Access Denied
+          </CardTitle>
+          <CardDescription>
+            You don't have permission to access this page
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-muted-foreground">
+            Please contact an administrator if you believe this is an error.
+          </p>
+          <Link to="/">
+            <Button className="w-full bg-gradient-primary hover:shadow-glow transition-smooth">
+              Go to Dashboard
+            </Button>
+          </Link>
         </CardContent>
       </Card>
     </div>
   );
 };
+
+export default Unauthorized;
