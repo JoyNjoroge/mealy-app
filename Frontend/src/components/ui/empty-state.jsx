@@ -1,20 +1,9 @@
-import { LucideIcon } from "lucide-react";
+import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface EmptyStateProps {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-  className?: string;
-}
-
-export const EmptyState: React.FC<EmptyStateProps> = ({
+export const EmptyState = ({
   icon: Icon,
   title,
   description,
