@@ -16,9 +16,9 @@ import cloudinary.uploader
 import click
 from functools import wraps
 from http import HTTPStatus
-from models import db, User, Meal, Menu, MenuItem, Order, Notification
+from .models import db, User, Meal, Menu, MenuItem, Order, Notification
 from flasgger import Swagger
-from seed import seed_data
+from .seed import seed_data
 import smtplib
 from email.mime.text import MIMEText
 # Load environment variables
@@ -1236,7 +1236,6 @@ responses:
 @app.cli.command("seed")
 def seed():
     """Seed the database with sample data."""
-    from seed import seed_data
     seed_data()
     click.echo("Database seeded successfully.")
 
