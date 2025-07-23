@@ -99,7 +99,12 @@ const OrderManagement = ({ onStatsUpdate }) => {
         </div>
       </CardHeader>
       <CardContent>
-        {filteredOrders.length === 0 ? (
+        {!Array.isArray(filteredOrders) ? (
+          <div className="text-center py-8 text-destructive">
+            <span className="text-4xl">⚠️</span>
+            <p className="mt-2">Failed to load orders. Please try again later.</p>
+          </div>
+        ) : filteredOrders.length === 0 ? (
           <div className="text-center py-8">
             <span className="text-4xl">📝</span>
             <p className="mt-2 text-muted-foreground">

@@ -1,18 +1,17 @@
+import React from "react";
+import PropTypes from "prop-types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  allowedRoles?: string[];
-}
-
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  allowedRoles 
-}) => {
+export const ProtectedRoute = ({ children, allowedRoles = undefined }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
+
+  console.log('ProtectedRoute: user', user);
+  if (user) {
+    console.log('ProtectedRoute: user.role', user.role);
+  }
 
   if (isLoading) {
     return (
@@ -36,4 +35,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   return <>{children}</>;
+};
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+  allowedRoles: PropTypes.arrayOf(PropTypes.string),
 };

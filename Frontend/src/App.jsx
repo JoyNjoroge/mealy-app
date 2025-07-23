@@ -16,7 +16,7 @@ import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import CatererDashboard from "./pages/caterer/CatererDashboard";
 
 // Utility Pages
-import ProtectedRoute from "./components/ProtectedRoute";
+import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 

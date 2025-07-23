@@ -20,7 +20,9 @@ const MealManagement = ({ onStatsUpdate }) => {
     description: '',
     price: '',
     category: '',
+    image: null,
   });
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     loadMeals();
@@ -41,17 +43,20 @@ const MealManagement = ({ onStatsUpdate }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const submitData = { ...formData };
+      if (!formData.image) delete submitData.image;
       if (editingMeal) {
-        await apiService.updateMeal(editingMeal.id, formData);
+        await apiService.updateMeal(editingMeal.id, submitData);
         toast({ title: "Meal updated successfully!" });
       } else {
-        await apiService.createMeal(formData);
+        await apiService.createMeal(submitData);
         toast({ title: "Meal created successfully!" });
       }
       
       setIsDialogOpen(false);
       setEditingMeal(null);
-      setFormData({ name: '', description: '', price: '', category: '' });
+      setFormData({ name: '', description: '', price: '', category: '', image: null });
+      setImagePreview(null);
       loadMeals();
       onStatsUpdate && onStatsUpdate();
     } catch (error) {
@@ -66,7 +71,9 @@ const MealManagement = ({ onStatsUpdate }) => {
       description: meal.description,
       price: meal.price.toString(),
       category: meal.category,
+      image: null, // Don't prefill image
     });
+    setImagePreview(meal.image_url || null);
     setIsDialogOpen(true);
   };
 
@@ -84,10 +91,19 @@ const MealManagement = ({ onStatsUpdate }) => {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    if (e.target.name === 'image') {
+      const file = e.target.files[0];
+      setFormData({
+        ...formData,
+        image: file,
+      });
+      setImagePreview(file ? URL.createObjectURL(file) : null);
+    } else {
+      setFormData({
+        ...formData,
+        [e.target.name]: e.target.value,
+      });
+    }
   };
 
   if (isLoading) {
@@ -171,6 +187,23 @@ const MealManagement = ({ onStatsUpdate }) => {
                       placeholder="e.g., Main Course, Appetizer"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="image">Meal Image</Label>
+                    <Input
+                      id="image"
+                      name="image"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleChange}
+                    />
+                    {imagePreview && (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="mt-2 w-full h-40 object-cover rounded-lg shadow-md border"
+                      />
+                    )}
+                  </div>
                 </div>
                 <DialogFooter className="mt-6">
                   <Button type="submit" className="bg-gradient-primary">
@@ -183,7 +216,12 @@ const MealManagement = ({ onStatsUpdate }) => {
         </div>
       </CardHeader>
       <CardContent>
-        {meals.length === 0 ? (
+        {!Array.isArray(meals) ? (
+          <div className="text-center py-8 text-destructive">
+            <span className="text-4xl">⚠️</span>
+            <p className="mt-2">Failed to load meals. Please try again later.</p>
+          </div>
+        ) : meals.length === 0 ? (
           <div className="text-center py-8">
             <span className="text-4xl">🍽️</span>
             <p className="mt-2 text-muted-foreground">No meals created yet</p>
@@ -193,6 +231,16 @@ const MealManagement = ({ onStatsUpdate }) => {
             {meals.map((meal) => (
               <Card key={meal.id} className="border hover:shadow-soft transition-smooth">
                 <CardContent className="p-4">
+                  {meal.image_url && (
+                    <div className="w-full h-40 mb-3 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <img
+                        src={meal.image_url}
+                        alt={meal.name}
+                        className="object-cover w-full h-full rounded-lg shadow-md border"
+                        style={{ maxHeight: '160px' }}
+                      />
+                    </div>
+                  )}
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="font-semibold text-lg">{meal.name}</h3>
                     <Badge variant="secondary">{meal.category}</Badge>
