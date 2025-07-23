@@ -33,6 +33,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     const result = await login(formData);
+    console.log('Login result:', result);
 
     if (result.success) {
       navigate('/'); // Let DashboardRouter handle where to go

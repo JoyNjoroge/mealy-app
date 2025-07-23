@@ -12,12 +12,16 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const headers = {
+      ...this.getAuthHeaders(),
+      ...options.headers,
+    };
+    // Only set Content-Type if body is a string (JSON)
+    if (options.body && typeof options.body === 'string') {
+      headers['Content-Type'] = 'application/json';
+    }
     const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
@@ -43,26 +47,48 @@ class ApiService {
 
   // Meals
   async getMeals() {
-    return this.request('/meals');
+    const data = await this.request('/meals');
+    return Array.isArray(data.items) ? data.items : [];
   }
 
   async createMeal(mealData) {
+    // Always use FormData for POST /meals
+    const formData = new FormData();
+    formData.append('name', mealData.name);
+    formData.append('description', mealData.description);
+    formData.append('price', mealData.price);
+    formData.append('category', mealData.category || '');
+    if (mealData.image instanceof File) {
+      formData.append('image', mealData.image);
+    }
     return this.request('/meals', {
       method: 'POST',
-      body: JSON.stringify(mealData),
+      body: formData,
+      headers: { ...this.getAuthHeaders() }, // Do not set Content-Type
     });
   }
 
   async updateMeal(mealId, mealData) {
+    // Always use FormData for PUT /meals/:id
+    const formData = new FormData();
+    formData.append('name', mealData.name);
+    formData.append('description', mealData.description);
+    formData.append('price', mealData.price);
+    formData.append('category', mealData.category || '');
+    if (mealData.image instanceof File) {
+      formData.append('image', mealData.image);
+    }
     return this.request(`/meals/${mealId}`, {
       method: 'PUT',
-      body: JSON.stringify(mealData),
+      body: formData,
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
   async deleteMeal(mealId) {
     return this.request(`/meals/${mealId}`, {
       method: 'DELETE',
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
@@ -80,7 +106,8 @@ class ApiService {
 
   // Orders
   async getOrders() {
-    return this.request('/orders');
+    const data = await this.request('/orders');
+    return Array.isArray(data.items) ? data.items : [];
   }
 
   async createOrder(orderData) {
@@ -109,7 +136,8 @@ class ApiService {
 
   // Revenue
   async getDailyRevenue(date) {
-    return this.request(`/revenue/daily?date=${date}`);
+    const data = await this.request(`/revenue/daily?date=${date}`);
+    return data.total || 0;
   }
 }
 
