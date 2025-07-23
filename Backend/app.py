@@ -21,6 +21,7 @@ from flasgger import Swagger
 from .seed import seed_data
 import smtplib
 from email.mime.text import MIMEText
+from flask_cors import CORS
 # Load environment variables
 load_dotenv()
 
@@ -38,6 +39,7 @@ db.init_app(app)
 migrate = Migrate(app, db)
 api = Api(app)
 jwt = JWTManager(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
 # Configure Cloudinary
@@ -217,6 +219,9 @@ responses:
         db.session.rollback()
         raise MealAPIError(str(e))
 
+@app.route('/')
+def index():
+    return ("Welcome to Mealy API")
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
