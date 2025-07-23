@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 const AuthContext = createContext();
@@ -16,10 +16,11 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
+  // Load token and user from localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
@@ -27,29 +28,37 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
 
+  // Memoize isAuthenticated so it reacts to state changes
+  const isAuthenticated = useMemo(() => {
+    return !!token && !!user;
+  }, [token, user]);
+
+  const BASE_URL = '/api/auth';
+
   const login = async (credentials) => {
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${BASE_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(credentials),
       });
-
+      console.log('Login response:', response);
       const data = await response.json();
+      console.log('Login data:', data);
 
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         setToken(data.token);
         setUser(data.user);
-        
+
         toast({
           title: "Welcome back!",
           description: `Logged in as ${data.user.role}`,
         });
-        
+
         return { success: true, user: data.user };
       } else {
         toast({
@@ -60,6 +69,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: data.message };
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Login error",
         description: "Unable to connect to server",
@@ -71,16 +81,17 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(`${BASE_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userData),
       });
-
+      console.log('Register response:', response);
       const data = await response.json();
-
+      console.log('Register data:', data);
+      // Do NOT set user or token here. Registration should not log in the user.
       if (response.ok) {
         toast({
           title: "Account created!",
@@ -96,6 +107,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: data.message };
       }
     } catch (error) {
+      console.error('Register error:', error);
       toast({
         title: "Registration error",
         description: "Unable to connect to server",
@@ -110,7 +122,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
-    
+
     toast({
       title: "Logged out",
       description: "Come back soon!",
@@ -129,7 +141,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     getAuthHeaders,
-    isAuthenticated: !!token && !!user,
+    isAuthenticated,
   };
 
   return (
