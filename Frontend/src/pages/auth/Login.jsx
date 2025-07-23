@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,13 +8,18 @@ import { Label } from '@/components/ui/label';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const { login, isAuthenticated, user, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      navigate('/', { replace: true }); // Let DashboardRouter decide
+    }
+  }, [isLoading, isAuthenticated, user, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -25,18 +30,25 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    
+    setIsSubmitting(true);
+
     const result = await login(formData);
-    
+
     if (result.success) {
-      // Redirect based on user role
-      const dashboardPath = result.user.role === 'customer' ? '/customer' : '/caterer';
-      navigate(dashboardPath);
+      navigate('/'); // Let DashboardRouter handle where to go
     }
-    
-    setIsLoading(false);
+
+    setIsSubmitting(false);
   };
+
+  // Show loading UI while auth state is initializing
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-background px-4">
@@ -83,13 +95,9 @@ const Login = () => {
             <Button 
               type="submit" 
               className="w-full bg-gradient-primary hover:shadow-glow transition-smooth" 
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                'Sign In'
-              )}
+              {isSubmitting ? <LoadingSpinner size="sm" /> : 'Sign In'}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">
