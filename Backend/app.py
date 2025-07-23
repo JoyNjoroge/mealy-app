@@ -21,6 +21,7 @@ from flasgger import Swagger
 from seed import seed_data
 import smtplib
 from email.mime.text import MIMEText
+from flask_cors import CORS
 # Load environment variables
 load_dotenv()
 
@@ -40,12 +41,15 @@ api = Api(app)
 jwt = JWTManager(app)
 
 
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
 # Configure Cloudinary
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
     api_key=os.getenv('CLOUDINARY_API_KEY'),
     api_secret=os.getenv('CLOUDINARY_API_SECRET')
 )
+
 
 
 
