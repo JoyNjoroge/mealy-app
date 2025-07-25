@@ -37,5 +37,6 @@ def send_email(to_email, subject, content):
             server.starttls()
             server.login(os.getenv('MAIL_USERNAME'), os.getenv('MAIL_PASSWORD'))
             server.send_message(msg)
+        print(f"SMTP email sent to {to_email}")
     except Exception as e:
-        print(f"Email send failed: {str(e)}") 
+        print(f"SMTP email send failed: {str(e)}") 
