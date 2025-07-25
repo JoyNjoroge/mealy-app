@@ -110,6 +110,7 @@ const Register = () => {
                 <SelectContent>
                   <SelectItem value="customer">Customer</SelectItem>
                   <SelectItem value="caterer">Caterer</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -98,7 +98,7 @@ class ApiService {
   }
 
   async createMenu(menuData) {
-    return this.request('/menu', {
+    return this.request('/menus', {
       method: 'POST',
       body: JSON.stringify(menuData),
     });

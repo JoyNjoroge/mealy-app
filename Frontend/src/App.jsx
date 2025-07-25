@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import DashboardRouter from "@/components/DashboardRouter";
 import HomePage from "@/pages/HomePage";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
 
 // Auth Pages
 import Login from "./pages/auth/Login";
@@ -42,6 +43,14 @@ const App = () => (
 
             {/* Protected Routes */}
             <Route path="/" element={<DashboardRouter />} />
+            <Route
+     path="/admin"
+     element={
+       <ProtectedRoute allowedRoles={["admin"]}>
+         <AdminDashboard />
+       </ProtectedRoute>
+     }
+   />
 
             <Route
               path="/customer"

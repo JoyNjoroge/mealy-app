@@ -1,13 +1,12 @@
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pytest
-from ..app import app as flask_app
-from ..models import db, User
+from app.main import app as flask_app
+from app.core.database import db
+from app.models.user import User
 from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash
+from unittest.mock import patch
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def app():
     flask_app.config.update({
         "TESTING": True,
@@ -16,18 +15,16 @@ def app():
         "JWT_SECRET_KEY": "test-jwt-secret",
         "PROPAGATE_EXCEPTIONS": True
     })
-
-
     with flask_app.app_context():
         db.create_all()
         yield flask_app
         db.drop_all()
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def client(app):
     return app.test_client()
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def admin_token(app):
     with app.app_context():
         admin = User(
@@ -40,7 +37,7 @@ def admin_token(app):
         db.session.commit()
         return create_access_token(identity=admin.email)
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def user_token(app):
     with app.app_context():
         user = User(
@@ -52,3 +49,11 @@ def user_token(app):
         db.session.add(user)
         db.session.commit()
         return create_access_token(identity=user.email)
+
+@pytest.fixture(autouse=True)
+def mock_external_services():
+    with patch('app.api.utils.send_email') as mock_email, \
+         patch('cloudinary.uploader.upload') as mock_cloudinary_upload:
+        mock_email.return_value = None
+        mock_cloudinary_upload.return_value = {'url': 'http://mocked.cloudinary/test.jpg'}
+        yield
