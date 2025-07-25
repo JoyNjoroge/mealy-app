@@ -45,38 +45,61 @@ class ApiService {
     }
   }
 
+  // Auth
+  async login(credentials) {
+    const data = await this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (data.access_token) {
+      localStorage.setItem('token', data.access_token);
+    }
+    return data;
+  }
+
+  async register(userData) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // Meals
   async getMeals() {
     const data = await this.request('/meals');
-    return Array.isArray(data.items) ? data.items : [];
+    return Array.isArray(data) ? data : [];
   }
 
   async createMeal(mealData) {
-    // Always use FormData for POST /meals
     const formData = new FormData();
     formData.append('name', mealData.name);
     formData.append('description', mealData.description);
     formData.append('price', mealData.price);
-    formData.append('category', mealData.category || '');
     if (mealData.image instanceof File) {
       formData.append('image', mealData.image);
+    }
+    if (mealData.caterer_id) {
+      formData.append('caterer_id', mealData.caterer_id);
     }
     return this.request('/meals', {
       method: 'POST',
       body: formData,
-      headers: { ...this.getAuthHeaders() }, // Do not set Content-Type
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
   async updateMeal(mealId, mealData) {
-    // Always use FormData for PUT /meals/:id
     const formData = new FormData();
     formData.append('name', mealData.name);
     formData.append('description', mealData.description);
     formData.append('price', mealData.price);
-    formData.append('category', mealData.category || '');
     if (mealData.image instanceof File) {
       formData.append('image', mealData.image);
+    }
+    if (mealData.caterer_id) {
+      formData.append('caterer_id', mealData.caterer_id);
     }
     return this.request(`/meals/${mealId}`, {
       method: 'PUT',
@@ -101,19 +124,21 @@ class ApiService {
     return this.request('/menus', {
       method: 'POST',
       body: JSON.stringify(menuData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
   // Orders
   async getOrders() {
     const data = await this.request('/orders');
-    return Array.isArray(data.items) ? data.items : [];
+    return Array.isArray(data) ? data : [];
   }
 
   async createOrder(orderData) {
     return this.request('/orders', {
       method: 'POST',
       body: JSON.stringify(orderData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
@@ -121,12 +146,14 @@ class ApiService {
     return this.request(`/orders/${orderId}`, {
       method: 'PUT',
       body: JSON.stringify(orderData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
   async deleteOrder(orderId) {
     return this.request(`/orders/${orderId}`, {
       method: 'DELETE',
+      headers: { ...this.getAuthHeaders() },
     });
   }
 

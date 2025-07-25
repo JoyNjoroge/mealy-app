@@ -1,25 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Loading from '@/components/common/Loading.jsx';
 
-const Login = () => {
-  const [formData, setFormData] = useState({ email: '', password: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const { login, isAuthenticated, user, isLoading } = useAuth();
+const Register = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'customer',
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
   const navigate = useNavigate();
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (!isLoading && isAuthenticated && user) {
-      navigate('/', { replace: true }); // Let DashboardRouter decide
-    }
-  }, [isLoading, isAuthenticated, user, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -28,28 +26,25 @@ const Login = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    const result = await login(formData);
-    console.log('Login result:', result);
-
-    if (result.success) {
-      navigate('/'); // Let DashboardRouter handle where to go
-    }
-
-    setIsSubmitting(false);
+  const handleRoleChange = (value) => {
+    setFormData({
+      ...formData,
+      role: value,
+    });
   };
 
-  // Show loading UI while auth state is initializing
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    const result = await register(formData);
+    
+    if (result.success) {
+      navigate('/login');
+    }
+    
+    setIsLoading(false);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-background px-4">
@@ -59,14 +54,30 @@ const Login = () => {
             <span className="text-2xl">🍱</span>
           </div>
           <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Welcome to Mealy
+            Join Mealy
           </CardTitle>
           <CardDescription>
-            Sign in to your account to continue
+            Create your account to get started
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex justify-end p-4">
+            <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                name="name"
+                type="text"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                placeholder="Enter your full name"
+                className="transition-smooth focus:shadow-soft"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -89,25 +100,42 @@ const Login = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                placeholder="Enter your password"
+                placeholder="Create a password"
                 className="transition-smooth focus:shadow-soft"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Account Type</Label>
+              <Select value={formData.role} onValueChange={handleRoleChange}>
+                <SelectTrigger className="transition-smooth focus:shadow-soft">
+                  <SelectValue placeholder="Select account type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="caterer">Caterer</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button 
               type="submit" 
               className="w-full bg-gradient-primary hover:shadow-glow transition-smooth" 
-              disabled={isSubmitting}
+              disabled={isLoading}
             >
-              {isSubmitting ? <LoadingSpinner size="sm" /> : 'Sign In'}
+              {isLoading ? (
+                <Loading size="sm" />
+              ) : (
+                'Create Account'
+              )}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
+            <span className="text-muted-foreground">Already have an account? </span>
             <Link 
-              to="/register" 
+              to="/login" 
               className="text-primary hover:text-primary-light transition-smooth underline"
             >
-              Sign up
+              Sign in
             </Link>
           </div>
         </CardContent>
@@ -116,4 +144,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;

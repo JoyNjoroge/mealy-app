@@ -14,6 +14,8 @@ from app.models.order import Order
 from app.models.delivery import Notification
 from flask.cli import with_appcontext
 import click
+from app.api.utils import UnauthorizedError, ValidationError
+from flask import jsonify
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -44,6 +46,18 @@ app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(users_bp, url_prefix='/api/users')
 app.register_blueprint(restaurants_bp, url_prefix='/api')
 app.register_blueprint(orders_bp, url_prefix='/api')
+
+@app.errorhandler(UnauthorizedError)
+def handle_unauthorized_error(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
+
+@app.errorhandler(ValidationError)
+def handle_validation_error(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))) 

@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import LoadingSpinner from "@/components/common/Loading";
 import { apiService, endpoints } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 

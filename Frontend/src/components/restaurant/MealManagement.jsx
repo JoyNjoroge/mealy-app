@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Loading from '@/components/common/Loading.jsx';
 import apiService from '@/services/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -110,7 +110,7 @@ const MealManagement = ({ onStatsUpdate }) => {
     return (
       <Card className="shadow-card">
         <CardContent className="flex items-center justify-center py-20">
-          <LoadingSpinner size="lg" />
+          <Loading size="lg" />
         </CardContent>
       </Card>
     );

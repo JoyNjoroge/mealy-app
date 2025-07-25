@@ -10,6 +10,32 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
+    """
+    Register a new user
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+            password:
+              type: string
+            role:
+              type: string
+    responses:
+      201:
+        description: User created successfully
+      400:
+        description: Invalid input
+    """
     data = request.get_json()
     if not data or not data.get('email') or not data.get('password'):
         raise ValidationError("Email and password are required")
@@ -40,6 +66,28 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
+    """
+    Log in and get JWT token
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+    responses:
+      200:
+        description: Login successful
+      401:
+        description: Invalid credentials
+    """
     data = request.get_json()
     if not data or not data.get('email') or not data.get('password'):
         raise ValidationError("Email and password are required")

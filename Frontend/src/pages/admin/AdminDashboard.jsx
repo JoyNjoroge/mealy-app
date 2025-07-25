@@ -3,12 +3,16 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import apiService from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [meals, setMeals] = useState([]);
   const [tab, setTab] = useState('users');
   const [loading, setLoading] = useState(true);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadData();
@@ -46,6 +50,10 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-background p-6">
+      <div className="flex justify-end gap-2 p-4">
+        <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
+        <Button variant="destructive" onClick={logout}>Logout</Button>
+      </div>
       <Card className="max-w-5xl mx-auto shadow-card">
         <CardHeader>
           <CardTitle>Admin Dashboard</CardTitle>

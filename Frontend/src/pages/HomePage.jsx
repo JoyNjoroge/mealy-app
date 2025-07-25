@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { FaInstagram, FaFacebook, FaTwitter } from "react-icons/fa";
 import { Button } from '@/components/ui/button'; 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; 
+import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
 
 
 const Slideshow = ({ images, label, onClick }) => {
@@ -35,8 +37,14 @@ const Slideshow = ({ images, label, onClick }) => {
 };
 
 const HomePage = () => { 
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
+  if (isAuthenticated && user) {
+    if (user.role === "admin") return <Navigate to="/admin" />;
+    if (user.role === "caterer") return <Navigate to="/caterer" />;
+    if (user.role === "customer") return <Navigate to="/customer" />;
+  }
   
   const foodImages = ["/images/food1.jpg", "/images/food2.jpg", "/images/food3.jpg"];
   const snacksImages = ["/images/snacks1.jpg", "/images/snacks2.jpg", "/images/snacks3.jpg"];

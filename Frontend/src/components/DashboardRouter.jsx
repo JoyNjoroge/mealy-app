@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Loading from '@/components/common/Loading.jsx';
 
 const DashboardRouter = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -26,7 +26,7 @@ const DashboardRouter = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-background">
-      <LoadingSpinner size="lg" />
+      <Loading size="lg" />
     </div>
   );
 };

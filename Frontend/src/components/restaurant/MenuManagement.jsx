@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Loading from '@/components/common/Loading.jsx';
 import apiService from '@/services/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -75,7 +75,7 @@ const MenuManagement = () => {
     return (
       <Card className="shadow-card">
         <CardContent className="flex items-center justify-center py-20">
-          <LoadingSpinner size="lg" />
+          <Loading size="lg" />
         </CardContent>
       </Card>
     );
@@ -135,7 +135,7 @@ const MenuManagement = () => {
               disabled={isSaving}
               className="bg-gradient-success hover:shadow-glow transition-smooth"
             >
-              {isSaving ? <LoadingSpinner size="sm" /> : 'Save Menu'}
+              {isSaving ? <Loading size="sm" /> : 'Save Menu'}
             </Button>
           </div>
         </CardHeader>
