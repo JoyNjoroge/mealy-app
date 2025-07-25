@@ -2,7 +2,7 @@ import React from "react";
 import PropTypes from "prop-types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import Loading from '@/components/common/Loading.jsx';
 
 export const ProtectedRoute = ({ children, allowedRoles = undefined }) => {
   const { user, isLoading } = useAuth();
@@ -17,7 +17,7 @@ export const ProtectedRoute = ({ children, allowedRoles = undefined }) => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <LoadingSpinner size="lg" />
+          <Loading size="lg" />
           <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </div>
@@ -26,7 +26,7 @@ export const ProtectedRoute = ({ children, allowedRoles = undefined }) => {
 
   if (!user) {
     // Redirect to login page with return url
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {

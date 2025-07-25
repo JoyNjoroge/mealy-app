@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Loading from '@/components/common/Loading.jsx';
 import apiService from '@/services/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -65,7 +65,7 @@ const OrderManagement = ({ onStatsUpdate }) => {
     return (
       <Card className="shadow-card">
         <CardContent className="flex items-center justify-center py-20">
-          <LoadingSpinner size="lg" />
+          <Loading size="lg" />
         </CardContent>
       </Card>
     );

@@ -49,9 +49,9 @@ export const AuthProvider = ({ children }) => {
       console.log('Login data:', data);
 
       if (response.ok) {
-        localStorage.setItem('token', data.token);
+        localStorage.setItem('token', data.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        setToken(data.token);
+        setToken(data.access_token);
         setUser(data.user);
 
         toast({

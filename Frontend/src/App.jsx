@@ -10,15 +10,15 @@ import HomePage from "@/pages/HomePage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
 // Auth Pages
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
+import Login from "./components/auth/Login.jsx";
+import Register from "./components/auth/Register.jsx";
 
 // Dashboard Pages
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import CatererDashboard from "./pages/caterer/CatererDashboard";
 
 // Utility Pages
-import { ProtectedRoute } from "./components/layout/ProtectedRoute";
+import { ProtectedRoute } from "./components/common/ProtectedRoute.jsx";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
@@ -42,7 +42,6 @@ const App = () => (
             <Route path="/" element={<HomePage />} />
 
             {/* Protected Routes */}
-            <Route path="/" element={<DashboardRouter />} />
             <Route
      path="/admin"
      element={
