@@ -87,6 +87,7 @@ const HomePage = () => {
 
         {/* Social Icons */}
         <div className="flex justify-center space-x-6 mt-4 text-2xl text-amber-700">
+          {/* Render each icon as a JSX element, not as an array/object */}
           <a href="https://instagram.com" target="_blank" rel="noreferrer">
             <FaInstagram className="hover:text-pink-600" />
           </a>

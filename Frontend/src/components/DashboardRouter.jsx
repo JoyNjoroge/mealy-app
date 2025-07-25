@@ -15,8 +15,10 @@ const DashboardRouter = () => {
       navigate('/login', { replace: true });
     } else if (user?.role === 'customer') {
       navigate('/customer', { replace: true });
-    } else if (user?.role === 'caterer' || user?.role === 'admin') {
+    } else if (user?.role === 'caterer') {
       navigate('/caterer', { replace: true });
+    } else if (user?.role === 'admin') {
+      navigate('/admin', { replace: true });
     } else {
       navigate('/unauthorized', { replace: true });
     }
