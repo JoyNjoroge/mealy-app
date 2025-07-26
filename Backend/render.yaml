@@ -33,6 +33,7 @@ services:
       - key: MAIL_PORT
         value: 587
 
-databases:
-  - name: mealy-db
+  - type: postgres
+    name: mealy-db
     plan: free
+    region: oregon
