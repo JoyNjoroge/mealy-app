@@ -111,6 +111,21 @@ class ApiService {
   async getDailyRevenue(date) {
     return this.request(`/revenue/daily?date=${date}`);
   }
+
+  // Auth
+  async login(credentials) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async register(userData) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  }
 }
 
 export default new ApiService();
