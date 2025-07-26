@@ -3,20 +3,20 @@ services:
     name: mealy-backend
     env: docker
     plan: free
-    autoDeploy: true
     region: oregon
+    autoDeploy: true
     dockerContext: .
     dockerfilePath: ./Dockerfile
     envVars:
       - key: DATABASE_URL
-        fromService:
-          type: postgres
-          name: mealy-db
+        fromDatabase:
+          name: mealydb
+          property: connectionString
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
-        value: your_super_secret_key_here
+        value: your_very_secret_random_key
 
 databases:
-  - name: mealy-db
+  - name: mealydb
     plan: free

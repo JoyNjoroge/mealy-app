@@ -10,7 +10,7 @@ services:
 
   web:
     build: .
-    command: ["./wait-for-db.sh", "db", "python", "app.py"]
+    command: ["./wait-for-db.sh", "gunicorn", "app.main:app", "-b", "0.0.0.0:8000"]
     depends_on:
       - db
     environment:
