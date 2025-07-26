@@ -57,7 +57,10 @@ db.init_app(app)
 migrate = Migrate(app, db)
 api = Api(app)
 jwt = JWTManager(app)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Configure CORS to allow all origins and methods
+CORS(app, 
+     resources={r"/api/*": {"origins": ["*"], "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}},
+     supports_credentials=True)
 
 
 # Configure Cloudinary (with fallback for missing env vars)
@@ -126,6 +129,16 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"message": "Internal server error"}), 500
+
+# CORS preflight handler
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    response = make_response()
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # Role-based access control decorator
 def roles_required(*roles):
