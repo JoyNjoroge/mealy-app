@@ -75,7 +75,7 @@ const CatererDashboard = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
           <Card className="shadow-card">
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-primary">₦{stats.todayRevenue}</div>
+              <div className="text-2xl font-bold text-primary">kes{stats.todayRevenue}</div>
               <div className="text-sm text-muted-foreground">Today's Revenue</div>
             </CardContent>
           </Card>

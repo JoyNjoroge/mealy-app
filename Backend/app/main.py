@@ -1,5 +1,7 @@
+# app/main.py
+
 import os
-from flask import Flask
+from flask import Flask, jsonify # Add jsonify if not already imported
 from flask_migrate import Migrate
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
@@ -15,7 +17,7 @@ from app.models.delivery import Notification
 from flask.cli import with_appcontext
 import click
 from app.api.utils import UnauthorizedError, ValidationError
-from flask import jsonify
+# from flask import jsonify # Already imported above if you add it there
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -47,6 +49,31 @@ app.register_blueprint(users_bp, url_prefix='/api/users')
 app.register_blueprint(restaurants_bp, url_prefix='/api')
 app.register_blueprint(orders_bp, url_prefix='/api')
 
+# --- ADD THIS ROOT ROUTE ---
+@app.route('/')
+def index():
+    """
+    Root endpoint for the Mealy App API.
+    ---
+    responses:
+      200:
+        description: Welcome message and API status.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Welcome to the Mealy App API!
+            status:
+              type: string
+              example: active
+    """
+    return jsonify({
+        "message": "Welcome to the Mealy App API!",
+        "status": "active"
+    })
+# -------------------------
+
 @app.errorhandler(UnauthorizedError)
 def handle_unauthorized_error(error):
     response = jsonify(error.to_dict())
@@ -60,4 +87,4 @@ def handle_validation_error(error):
     return response
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))) 
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

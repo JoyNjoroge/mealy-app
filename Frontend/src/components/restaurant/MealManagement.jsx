@@ -166,7 +166,7 @@ const MealManagement = ({ onStatsUpdate }) => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="price">Price (₦)</Label>
+                    <Label htmlFor="price">Price (kes)</Label>
                     <Input
                       id="price"
                       name="price"

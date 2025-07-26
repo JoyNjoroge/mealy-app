@@ -6,6 +6,7 @@ from app.models.user import User
 from app.api.decorators import roles_required
 from app.api.utils import ValidationError, send_email
 import cloudinary.uploader
+import os 
 
 restaurants_bp = Blueprint('restaurants', __name__)
 
@@ -108,6 +109,68 @@ def create_meal():
         )
 
     return jsonify(meal.to_dict()), 201
+
+@restaurants_bp.route('/meals/<int:meal_id>', methods=['PUT'])
+@jwt_required()
+@roles_required('caterer', 'admin') 
+def update_meal(meal_id):
+    """
+    Update an existing meal by ID (caterer or admin)
+    ---
+    tags:
+      - Meals
+    parameters:
+      - in: path
+        name: meal_id
+        type: integer
+        required: true
+        description: The meal ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            price:
+              type: number
+            image_url:
+              type: string
+            # caterer_id is not expected in the request body for updates
+            # as per frontend changes, but is retained for the meal object.
+    responses:
+      200:
+        description: Meal updated
+      404:
+        description: Meal not found
+      400:
+        description: Invalid data provided
+    """
+    meal = Meal.query.get_or_404(meal_id)
+    data = request.get_json() # Get JSON data from the request body
+
+    if not data:
+        return jsonify({'message': 'Invalid JSON data provided'}), 400
+
+    # Update meal attributes if they are present in the request data
+    if 'name' in data:
+        meal.name = data['name']
+    if 'description' in data:
+        meal.description = data['description']
+    if 'price' in data:
+        try:
+            meal.price = float(data['price'])
+        except (ValueError, TypeError):
+            return jsonify({'message': 'Price must be a valid number'}), 400
+    if 'image_url' in data:
+        meal.image_url = data['image_url']
+
+
+    db.session.commit()
+    return jsonify(meal.to_dict()), 200
 
 @restaurants_bp.route('/meals/<int:meal_id>', methods=['DELETE'])
 @jwt_required()
@@ -358,4 +421,4 @@ def get_menu_today():
     menu = Menu.query.filter_by(date=today).first()
     if not menu:
         return jsonify({'message': 'No menu for today'}), 404
-    return jsonify(menu.to_dict()) 
+    return jsonify(menu.to_dict())

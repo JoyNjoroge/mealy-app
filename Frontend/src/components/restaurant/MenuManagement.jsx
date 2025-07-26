@@ -107,7 +107,7 @@ const MenuManagement = () => {
                   <h3 className="font-medium">{meal.name}</h3>
                   <p className="text-sm text-muted-foreground">{meal.description}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="font-bold text-primary">₦{meal.price}</span>
+                    <span className="font-bold text-primary">kes{meal.price}</span>
                     <Badge variant="secondary">{meal.category}</Badge>
                   </div>
                 </div>
@@ -166,7 +166,7 @@ const MenuManagement = () => {
                         <p className="text-sm text-muted-foreground">{meal.description}</p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-bold text-primary">₦{meal.price}</span>
+                        <span className="font-bold text-primary">kes{meal.price}</span>
                         <Badge variant="outline">{meal.category}</Badge>
                       </div>
                     </label>
