@@ -28,10 +28,28 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 swagger = Swagger(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
+# Database configuration
+database_url = os.getenv('DATABASE_URL') or os.getenv('DATABASE_URI')
+if not database_url:
+    print("Warning: DATABASE_URL not found. Using SQLite for development.")
+    database_url = 'sqlite:///app.db'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+
+# Secret keys
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    print("Warning: SECRET_KEY not found. Using default key.")
+    secret_key = 'dev-secret-key-change-in-production'
+
+jwt_secret_key = os.getenv('JWT_SECRET_KEY')
+if not jwt_secret_key:
+    print("Warning: JWT_SECRET_KEY not found. Using default key.")
+    jwt_secret_key = 'jwt-secret-key-change-in-production'
+
+app.config['SECRET_KEY'] = secret_key
+app.config['JWT_SECRET_KEY'] = jwt_secret_key
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
 
 # Initialize extensions
@@ -42,12 +60,19 @@ jwt = JWTManager(app)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
-# Configure Cloudinary
-cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
-)
+# Configure Cloudinary (with fallback for missing env vars)
+cloudinary_cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+cloudinary_api_key = os.getenv('CLOUDINARY_API_KEY')
+cloudinary_api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+if cloudinary_cloud_name and cloudinary_api_key and cloudinary_api_secret:
+    cloudinary.config(
+        cloud_name=cloudinary_cloud_name,
+        api_key=cloudinary_api_key,
+        api_secret=cloudinary_api_secret
+    )
+else:
+    print("Warning: Cloudinary credentials not found. Image uploads will not work.")
 
 
 
