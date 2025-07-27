@@ -37,14 +37,20 @@ const Slideshow = ({ images, label, onClick }) => {
 };
 
 const HomePage = () => { 
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
 
-  if (isAuthenticated && user) {
-    if (user.role === "admin") return <Navigate to="/admin" />;
-    if (user.role === "caterer") return <Navigate to="/caterer" />;
-    if (user.role === "customer") return <Navigate to="/customer" />;
-  }
+  // Remove automatic redirection - allow authenticated users to view homepage
+  // if (isAuthenticated && user) {
+  //   if (user.role === "admin") return <Navigate to="/admin" />;
+  //   if (user.role === "caterer") return <Navigate to="/caterer" />;
+  //   if (user.role === "customer") return <Navigate to="/customer" />;
+  // }
+  
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
   
   const foodImages = ["/images/food1.jpg", "/images/food2.jpg", "/images/food3.jpg"];
   const snacksImages = ["/images/snacks1.jpg", "/images/snacks2.jpg", "/images/snacks3.jpg"];
@@ -58,12 +64,30 @@ const HomePage = () => {
           MEALY
         </div>
         <div className="space-x-4">
-          <Link to="/login">
-            <Button variant="ghost" className="text-primary hover:text-primary-light text-lg">Login</Button>
-          </Link>
-          <Link to="/register">
-            <Button className="bg-gradient-primary hover:shadow-glow transition-smooth text-lg px-6 py-2">Sign Up</Button>
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
+              <Link to={user?.role === "admin" ? "/admin" : user?.role === "caterer" ? "/caterer" : "/customer"}>
+                <Button variant="ghost" className="text-primary hover:text-primary-light text-lg">Dashboard</Button>
+              </Link>
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                className="text-lg"
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" className="text-primary hover:text-primary-light text-lg">Login</Button>
+              </Link>
+              <Link to="/register">
+                <Button className="bg-gradient-primary hover:shadow-glow transition-smooth text-lg px-6 py-2">Sign Up</Button>
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 

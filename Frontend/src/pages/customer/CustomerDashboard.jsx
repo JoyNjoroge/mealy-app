@@ -29,7 +29,7 @@ const CustomerDashboard = () => {
         apiService.getOrderHistory(),
       ]);
       setMenu(menuData.meals || []);
-      setOrders(ordersData.orders || []);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -55,7 +55,7 @@ const CustomerDashboard = () => {
 
   const cancelOrder = async (orderId) => {
     try {
-      await apiService.deleteOrder(orderId);
+      await apiService.cancelOrder(orderId);
       toast({
         title: "Order cancelled",
         description: "Your order has been cancelled",
@@ -111,6 +111,11 @@ const CustomerDashboard = () => {
                     <CardContent className="p-4">
                       <h3 className="font-semibold text-lg mb-2">{meal.name}</h3>
                       <p className="text-sm text-muted-foreground mb-3">{meal.description}</p>
+                      <div className="mb-3">
+                        <p className="text-xs text-muted-foreground">
+                          By: {meal.caterer_name || 'Unknown Caterer'}
+                        </p>
+                      </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <span className="font-bold text-primary">₦{meal.price}</span>
@@ -157,7 +162,7 @@ const CustomerDashboard = () => {
                     <div className="flex-1">
                       <h4 className="font-medium">{order.meal_name}</h4>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString()} • ₦{order.total_price}
+                        {new Date(order.timestamp).toLocaleDateString()} • ₦{order.total_price}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">

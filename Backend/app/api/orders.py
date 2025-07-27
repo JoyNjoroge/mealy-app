@@ -63,16 +63,42 @@ def create_order_simple():
 @jwt_required()
 def get_orders():
     """
-    Get all orders
+    Get all orders with detailed information
     ---
     tags:
       - Orders
     responses:
       200:
-        description: List of orders
+        description: List of orders with meal and user details
     """
     orders = Order.query.all()
-    return jsonify([order.to_dict() for order in orders])
+    orders_with_details = []
+    
+    for order in orders:
+        order_dict = order.to_dict()
+        # Add meal details
+        if order.menu_item and order.menu_item.meal:
+            order_dict['meal_name'] = order.menu_item.meal.name
+            order_dict['meal_price'] = order.menu_item.meal.price
+            order_dict['caterer_name'] = order.menu_item.meal.caterer.name if order.menu_item.meal.caterer else 'Unknown'
+            order_dict['caterer_email'] = order.menu_item.meal.caterer.email if order.menu_item.meal.caterer else 'Unknown'
+        else:
+            order_dict['meal_name'] = 'Unknown Meal'
+            order_dict['meal_price'] = 0
+            order_dict['caterer_name'] = 'Unknown'
+            order_dict['caterer_email'] = 'Unknown'
+        
+        # Add customer details
+        if order.user:
+            order_dict['customer_name'] = order.user.name
+            order_dict['customer_email'] = order.user.email
+        else:
+            order_dict['customer_name'] = 'Unknown'
+            order_dict['customer_email'] = 'Unknown'
+        
+        orders_with_details.append(order_dict)
+    
+    return jsonify(orders_with_details)
 
 @orders_bp.route('/orders', methods=['POST'])
 @jwt_required()
@@ -191,10 +217,9 @@ def update_order(order_id):
 
 @orders_bp.route('/orders/<int:order_id>', methods=['DELETE'])
 @jwt_required()
-@roles_required('admin')
 def delete_order(order_id):
     """
-    Delete an order by ID (admin only)
+    Delete an order by ID (customers can cancel their own orders, admins can delete any)
     ---
     tags:
       - Orders
@@ -207,11 +232,55 @@ def delete_order(order_id):
     responses:
       200:
         description: Order deleted
+      403:
+        description: Not authorized to delete this order
     """
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
     order = Order.query.get_or_404(order_id)
-    db.session.delete(order)
-    db.session.commit()
-    return jsonify({'message': 'Order deleted'})
+    
+    # Check if user can delete this order
+    # Customers can only delete their own orders
+    # Admins can delete any order
+    if user.role == 'admin' or order.user_id == user.id:
+        db.session.delete(order)
+        db.session.commit()
+        return jsonify({'message': 'Order deleted'})
+    else:
+        return jsonify({'error': 'Not authorized to delete this order'}), 403
+
+@orders_bp.route('/orders/<int:order_id>/cancel', methods=['PUT'])
+@jwt_required()
+@roles_required('customer')
+def cancel_order(order_id):
+    """
+    Cancel an order by ID (customer only, can only cancel their own orders)
+    ---
+    tags:
+      - Orders
+    parameters:
+      - in: path
+        name: order_id
+        type: integer
+        required: true
+        description: The order ID
+    responses:
+      200:
+        description: Order cancelled
+      403:
+        description: Not authorized to cancel this order
+    """
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
+    order = Order.query.get_or_404(order_id)
+    
+    # Check if this is the customer's own order
+    if order.user_id == user.id:
+        order.status = 'cancelled'
+        db.session.commit()
+        return jsonify(order.to_dict())
+    else:
+        return jsonify({'error': 'Not authorized to cancel this order'}), 403
 
 @orders_bp.route('/orders/history', methods=['GET'])
 @jwt_required()
@@ -223,9 +292,27 @@ def get_order_history():
       - Orders
     responses:
       200:
-        description: List of user's orders
+        description: List of user's orders with meal details
     """
     current_user_email = get_jwt_identity()
     user = User.query.filter_by(email=current_user_email).first()
     orders = Order.query.filter_by(user_id=user.id).all()
-    return jsonify([order.to_dict() for order in orders]) 
+    
+    orders_with_details = []
+    for order in orders:
+        order_dict = order.to_dict()
+        # Add meal details
+        if order.menu_item and order.menu_item.meal:
+            order_dict['meal_name'] = order.menu_item.meal.name
+            order_dict['meal_price'] = order.menu_item.meal.price
+            order_dict['caterer_name'] = order.menu_item.meal.caterer.name if order.menu_item.meal.caterer else 'Unknown'
+            order_dict['caterer_email'] = order.menu_item.meal.caterer.email if order.menu_item.meal.caterer else 'Unknown'
+        else:
+            order_dict['meal_name'] = 'Unknown Meal'
+            order_dict['meal_price'] = 0
+            order_dict['caterer_name'] = 'Unknown'
+            order_dict['caterer_email'] = 'Unknown'
+        
+        orders_with_details.append(order_dict)
+    
+    return jsonify(orders_with_details) 

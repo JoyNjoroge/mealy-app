@@ -19,7 +19,7 @@ const OrderManagement = ({ onStatsUpdate }) => {
   const loadOrders = async () => {
     try {
       setIsLoading(true);
-      const data = await apiService.getOrders();
+      const data = await apiService.getMyOrders();
       setOrders(data || []);
     } catch (error) {
       console.error('Failed to load orders:', error);

@@ -240,29 +240,43 @@ def create_menu():
         description: Menu created with meals
     """
     data = request.get_json()
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
     
     # Check if menu for this date already exists
     existing_menu = Menu.query.filter_by(date=data['date']).first()
+    
     if existing_menu:
-        # Update existing menu
-        menu = existing_menu
-        
-        # Check if there are any orders for this menu
-        from app.models.order import Order
-        existing_orders = Order.query.join(MenuItem).filter(MenuItem.menu_id == menu.id).first()
-        
-        if existing_orders:
-            # If orders exist, we can't update the menu - return error
-            return jsonify({'error': 'Cannot update menu - orders already exist for this date'}), 400
-        
-        # If no orders exist, we can safely delete existing menu items
-        MenuItem.query.filter_by(menu_id=menu.id).delete()
-        db.session.commit()
+        # Check if this is the same caterer trying to update their own menu
+        # If existing_menu.caterer_id is null, allow any caterer to update it
+        if user.role == 'admin' or existing_menu.caterer_id == user.id or existing_menu.caterer_id is None:
+            # Allow update - this is the same caterer, admin, or an unassigned menu
+            menu = existing_menu
+            
+            # Update the caterer_id if it was null
+            if existing_menu.caterer_id is None:
+                menu.caterer_id = user.id
+            
+            # Check if there are any orders for this menu
+            from app.models.order import Order
+            existing_orders = Order.query.join(MenuItem).filter(MenuItem.menu_id == menu.id).first()
+            
+            if existing_orders:
+                # If orders exist, we can still update but we'll add new menu items instead of replacing
+                # This preserves existing orders while allowing menu updates
+                pass
+            else:
+                # If no orders exist, we can safely delete existing menu items
+                MenuItem.query.filter_by(menu_id=menu.id).delete()
+                db.session.commit()
+        else:
+            # Different caterer trying to update someone else's menu
+            return jsonify({'error': 'Cannot update menu - another caterer already has a menu for this date'}), 400
     else:
         # Create new menu
         menu = Menu(
             date=data['date'],
-            caterer_id=data.get('caterer_id')
+            caterer_id=data.get('caterer_id') or user.id
         )
         db.session.add(menu)
         db.session.commit()
@@ -270,11 +284,14 @@ def create_menu():
     # Add menu items for selected meals
     meal_ids = data.get('meal_ids', [])
     for meal_id in meal_ids:
-        menu_item = MenuItem(
-            menu_id=menu.id,
-            meal_id=meal_id
-        )
-        db.session.add(menu_item)
+        # Check if this meal item already exists for this menu
+        existing_item = MenuItem.query.filter_by(menu_id=menu.id, meal_id=meal_id).first()
+        if not existing_item:
+            menu_item = MenuItem(
+                menu_id=menu.id,
+                meal_id=meal_id
+            )
+            db.session.add(menu_item)
     
     db.session.commit()
     return jsonify(menu.to_dict()), 201
@@ -441,13 +458,13 @@ def remove_menu_item(item_id):
 @jwt_required()
 def get_menu_today():
     """
-    Get today's menu with meals
+    Get today's menu with meals and caterer information
     ---
     tags:
       - Menus
     responses:
       200:
-        description: Today's menu with meals
+        description: Today's menu with meals and caterer details
       404:
         description: No menu for today
     """
@@ -465,6 +482,15 @@ def get_menu_today():
         if meal:
             meal_dict = meal.to_dict()
             meal_dict['menu_item_id'] = item.id  # Add menu item ID to each meal
+            
+            # Add caterer information
+            if meal.caterer:
+                meal_dict['caterer_name'] = meal.caterer.name
+                meal_dict['caterer_email'] = meal.caterer.email
+            else:
+                meal_dict['caterer_name'] = 'Unknown'
+                meal_dict['caterer_email'] = 'Unknown'
+            
             meals.append(meal_dict)
     
     return jsonify({
@@ -525,6 +551,154 @@ def get_daily_revenue():
     # Get orders for the specified date
     from sqlalchemy import func
     orders = Order.query.filter(
+        func.date(Order.timestamp) == target_date
+    ).all()
+    
+    # Calculate total revenue
+    total_revenue = sum(order.total_price for order in orders if order.total_price)
+    
+    return jsonify({
+        'date': date_str,
+        'total': total_revenue,
+        'order_count': len(orders)
+    })
+
+@restaurants_bp.route('/meals/my', methods=['GET'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def get_my_meals():
+    """
+    Get meals created by the current caterer
+    ---
+    tags:
+      - Meals
+    responses:
+      200:
+        description: List of caterer's meals
+    """
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
+    
+    meals = Meal.query.filter_by(caterer_id=user.id).all()
+    return jsonify([meal.to_dict() for meal in meals])
+
+@restaurants_bp.route('/menus/my', methods=['GET'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def get_my_menus():
+    """
+    Get menus created by the current caterer
+    ---
+    tags:
+      - Menus
+    responses:
+      200:
+        description: List of caterer's menus
+    """
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
+    
+    menus = Menu.query.filter_by(caterer_id=user.id).all()
+    return jsonify([menu.to_dict() for menu in menus])
+
+@restaurants_bp.route('/orders/my', methods=['GET'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def get_my_orders():
+    """
+    Get orders for meals created by the current caterer
+    ---
+    tags:
+      - Orders
+    responses:
+      200:
+        description: List of orders for caterer's meals
+    """
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
+    
+    # Get all meals by this caterer
+    caterer_meals = Meal.query.filter_by(caterer_id=user.id).all()
+    meal_ids = [meal.id for meal in caterer_meals]
+    
+    # Get menu items for these meals
+    menu_items = MenuItem.query.filter(Meal.id.in_(meal_ids)).join(Meal).all()
+    menu_item_ids = [item.id for item in menu_items]
+    
+    # Get orders for these menu items
+    from app.models.order import Order
+    orders = Order.query.filter(Order.menu_item_id.in_(menu_item_ids)).all()
+    
+    orders_with_details = []
+    for order in orders:
+        order_dict = order.to_dict()
+        # Add meal details
+        if order.menu_item and order.menu_item.meal:
+            order_dict['meal_name'] = order.menu_item.meal.name
+            order_dict['meal_price'] = order.menu_item.meal.price
+        else:
+            order_dict['meal_name'] = 'Unknown Meal'
+            order_dict['meal_price'] = 0
+        
+        # Add customer details
+        if order.user:
+            order_dict['customer_name'] = order.user.name
+            order_dict['customer_email'] = order.user.email
+        else:
+            order_dict['customer_name'] = 'Unknown'
+            order_dict['customer_email'] = 'Unknown'
+        
+        orders_with_details.append(order_dict)
+    
+    return jsonify(orders_with_details)
+
+@restaurants_bp.route('/revenue/my', methods=['GET'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def get_my_revenue():
+    """
+    Get revenue for the current caterer
+    ---
+    tags:
+      - Revenue
+    parameters:
+      - in: query
+        name: date
+        type: string
+        format: date
+        required: true
+        description: The date to get revenue for (YYYY-MM-DD)
+    responses:
+      200:
+        description: Caterer's revenue data
+    """
+    from datetime import datetime
+    from app.models.order import Order
+    
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
+    
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({'error': 'Date parameter is required'}), 400
+    
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+    
+    # Get all meals by this caterer
+    caterer_meals = Meal.query.filter_by(caterer_id=user.id).all()
+    meal_ids = [meal.id for meal in caterer_meals]
+    
+    # Get menu items for these meals
+    menu_items = MenuItem.query.filter(Meal.id.in_(meal_ids)).join(Meal).all()
+    menu_item_ids = [item.id for item in menu_items]
+    
+    # Get orders for these menu items on the specified date
+    from sqlalchemy import func
+    orders = Order.query.filter(
+        Order.menu_item_id.in_(menu_item_ids),
         func.date(Order.timestamp) == target_date
     ).all()
     

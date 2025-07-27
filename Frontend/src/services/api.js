@@ -157,6 +157,13 @@ class ApiService {
     });
   }
 
+  async cancelOrder(orderId) {
+    return this.request(`/orders/${orderId}/cancel`, {
+      method: 'PUT',
+      headers: { ...this.getAuthHeaders() },
+    });
+  }
+
   async getOrderHistory() {
     return this.request('/orders/history');
   }
@@ -164,6 +171,27 @@ class ApiService {
   // Revenue
   async getDailyRevenue(date) {
     const data = await this.request(`/revenue/daily?date=${date}`);
+    return data.total || 0;
+  }
+
+  // Caterer-specific endpoints
+  async getMyMeals() {
+    const data = await this.request('/meals/my');
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getMyMenus() {
+    const data = await this.request('/menus/my');
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getMyOrders() {
+    const data = await this.request('/orders/my');
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getMyRevenue(date) {
+    const data = await this.request(`/revenue/my?date=${date}`);
     return data.total || 0;
   }
 }

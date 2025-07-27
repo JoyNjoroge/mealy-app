@@ -31,16 +31,16 @@ const CatererDashboard = () => {
     try {
       setIsLoading(true);
       const [orders, meals, revenue] = await Promise.all([
-        apiService.getOrders(),
-        apiService.getMeals(),
-        apiService.getDailyRevenue(new Date().toISOString().split('T')[0]),
+        apiService.getMyOrders(),
+        apiService.getMyMeals(),
+        apiService.getMyRevenue(new Date().toISOString().split('T')[0]),
       ]);
       
       const pendingOrders = orders.filter(order => order.status === 'pending').length;
       
       setStats({
         totalOrders: orders.length,
-        todayRevenue: revenue.total || 0,
+        todayRevenue: revenue,
         pendingOrders,
         totalMeals: meals.length,
       });
