@@ -2,7 +2,7 @@ import { toast } from '@/hooks/use-toast';
 
 class ApiService {
   constructor() {
-    this.baseURL = '/api';
+    this.baseURL = 'https://mealy-app-7r5n.onrender.com/api';
   }
 
   getAuthHeaders() {
@@ -138,6 +138,21 @@ class ApiService {
   async getDailyRevenue(date) {
     const data = await this.request(`/revenue/daily?date=${date}`);
     return data.total || 0;
+  }
+
+  // Auth
+  async login(credentials) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async register(userData) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
   }
 }
 
