@@ -5,9 +5,59 @@ from app.models.order import Order
 from app.models.user import User
 from app.models.restaurant import MenuItem
 from app.api.decorators import roles_required
-from app.api.utils import ValidationError, send_email
+from app.api.utils import ValidationError
 
 orders_bp = Blueprint('orders', __name__)
+
+@orders_bp.route('/orders/test', methods=['GET'])
+def test_orders():
+    return jsonify({'message': 'Orders blueprint is working'})
+
+@orders_bp.route('/orders/create', methods=['POST'])
+@jwt_required()
+@roles_required('customer')
+def create_order_simple():
+    """
+    Create a new order (simplified version)
+    """
+    try:
+        data = request.get_json()
+        current_user_email = get_jwt_identity()
+        user = User.query.filter_by(email=current_user_email).first()
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        menu_item_id = data.get('menu_item_id')
+        quantity = data.get('quantity', 1)
+        
+        if not menu_item_id:
+            return jsonify({'error': 'menu_item_id is required'}), 400
+            
+        item = MenuItem.query.get(menu_item_id)
+        if not item:
+            return jsonify({'error': 'Menu item not found'}), 404
+            
+        total_price = item.meal.price * quantity
+        
+        order = Order(
+            user_id=user.id,
+            menu_item_id=item.id,
+            quantity=quantity,
+            total_price=total_price
+        )
+        
+        db.session.add(order)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Order created successfully',
+            'order': order.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @orders_bp.route('/orders', methods=['GET'])
 @jwt_required()
@@ -51,7 +101,12 @@ def create_order():
     data = request.get_json()
     current_user_email = get_jwt_identity()
     user = User.query.filter_by(email=current_user_email).first()
-    item = MenuItem.query.get_or_404(data['menu_item_id'])
+    
+    menu_item_id = data.get('menu_item_id')
+    if not menu_item_id:
+        return jsonify({'error': 'menu_item_id is required'}), 400
+        
+    item = MenuItem.query.get_or_404(menu_item_id)
     quantity = data.get('quantity', 1)
     total_price = item.meal.price * quantity
     order = Order(
@@ -64,19 +119,19 @@ def create_order():
     db.session.commit()
 
     # Send email to customer
-    send_email(
-        user.email,
-        "Order Placed Successfully",
-        f"<h1>Thank you for your order!</h1><p>Your order for {item.meal.name} (x{quantity}) has been placed.</p>"
-    )
+    # send_email(
+    #     user.email,
+    #     "Order Placed Successfully",
+    #     f"<h1>Thank you for your order!</h1><p>Your order for {item.meal.name} (x{quantity}) has been placed.</p>"
+    # )
     # Send email to caterer
-    caterer = item.meal.caterer
-    if caterer and caterer.email:
-        send_email(
-            caterer.email,
-            "New Order Received",
-            f"<h1>New Order!</h1><p>{user.name} placed an order for {item.meal.name} (x{quantity}).</p>"
-        )
+    # caterer = item.meal.caterer
+    # if caterer and caterer.email:
+    #     send_email(
+    #         caterer.email,
+    #         "New Order Received",
+    #         f"<h1>New Order!</h1><p>{user.name} placed an order for {item.meal.name} (x{quantity}).</p>"
+    #     )
 
     return jsonify(order.to_dict()), 201
 

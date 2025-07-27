@@ -37,10 +37,10 @@ const CustomerDashboard = () => {
     }
   };
 
-  const placeOrder = async (mealId) => {
+  const placeOrder = async (menuItemId) => {
     try {
       setIsOrdering(true);
-      await apiService.createOrder({ meal_id: mealId });
+      await apiService.createOrder({ menu_item_id: menuItemId });
       toast({
         title: "Order placed!",
         description: "Your meal has been ordered successfully",
@@ -84,7 +84,6 @@ const CustomerDashboard = () => {
       
       <div className="flex justify-end gap-2 p-4">
         <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
-        <Button variant="destructive" onClick={logout}>Logout</Button>
       </div>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
@@ -118,7 +117,7 @@ const CustomerDashboard = () => {
                           <Badge variant="secondary">{meal.category}</Badge>
                         </div>
                         <Button
-                          onClick={() => placeOrder(meal.id)}
+                          onClick={() => placeOrder(meal.menu_item_id)}
                           disabled={isOrdering}
                           className="bg-gradient-primary hover:shadow-glow transition-smooth"
                           size="sm"

@@ -69,7 +69,6 @@ const CatererDashboard = () => {
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex justify-end gap-2 p-4">
           <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
-          <Button variant="destructive" onClick={logout}>Logout</Button>
         </div>
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">

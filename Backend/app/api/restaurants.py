@@ -216,7 +216,7 @@ def get_menus():
 @roles_required('caterer', 'admin')
 def create_menu():
     """
-    Create a new menu (caterer or admin)
+    Create a new menu with meals (caterer or admin)
     ---
     tags:
       - Menus
@@ -231,16 +231,51 @@ def create_menu():
               type: string
             caterer_id:
               type: integer
+            meal_ids:
+              type: array
+              items:
+                type: integer
     responses:
       201:
-        description: Menu created
+        description: Menu created with meals
     """
     data = request.get_json()
-    menu = Menu(
-        date=data['date'],
-        caterer_id=data.get('caterer_id')
-    )
-    db.session.add(menu)
+    
+    # Check if menu for this date already exists
+    existing_menu = Menu.query.filter_by(date=data['date']).first()
+    if existing_menu:
+        # Update existing menu
+        menu = existing_menu
+        
+        # Check if there are any orders for this menu
+        from app.models.order import Order
+        existing_orders = Order.query.join(MenuItem).filter(MenuItem.menu_id == menu.id).first()
+        
+        if existing_orders:
+            # If orders exist, we can't update the menu - return error
+            return jsonify({'error': 'Cannot update menu - orders already exist for this date'}), 400
+        
+        # If no orders exist, we can safely delete existing menu items
+        MenuItem.query.filter_by(menu_id=menu.id).delete()
+        db.session.commit()
+    else:
+        # Create new menu
+        menu = Menu(
+            date=data['date'],
+            caterer_id=data.get('caterer_id')
+        )
+        db.session.add(menu)
+        db.session.commit()
+    
+    # Add menu items for selected meals
+    meal_ids = data.get('meal_ids', [])
+    for meal_id in meal_ids:
+        menu_item = MenuItem(
+            menu_id=menu.id,
+            meal_id=meal_id
+        )
+        db.session.add(menu_item)
+    
     db.session.commit()
     return jsonify(menu.to_dict()), 201
 
@@ -406,13 +441,13 @@ def remove_menu_item(item_id):
 @jwt_required()
 def get_menu_today():
     """
-    Get today's menu
+    Get today's menu with meals
     ---
     tags:
       - Menus
     responses:
       200:
-        description: Today's menu
+        description: Today's menu with meals
       404:
         description: No menu for today
     """
@@ -421,4 +456,83 @@ def get_menu_today():
     menu = Menu.query.filter_by(date=today).first()
     if not menu:
         return jsonify({'message': 'No menu for today'}), 404
-    return jsonify(menu.to_dict())
+    
+    # Get menu items with their associated meals
+    menu_items = MenuItem.query.filter_by(menu_id=menu.id).all()
+    meals = []
+    for item in menu_items:
+        meal = Meal.query.get(item.meal_id)
+        if meal:
+            meal_dict = meal.to_dict()
+            meal_dict['menu_item_id'] = item.id  # Add menu item ID to each meal
+            meals.append(meal_dict)
+    
+    return jsonify({
+        'id': menu.id,
+        'date': str(menu.date),
+        'caterer_id': menu.caterer_id,
+        'meals': meals
+    })
+
+@restaurants_bp.route('/test-orders', methods=['GET'])
+def test_orders():
+    """
+    Test endpoint to check if orders can be queried
+    """
+    try:
+        from app.models.order import Order
+        orders = Order.query.all()
+        return jsonify({
+            'message': 'Orders query successful',
+            'count': len(orders),
+            'orders': [{'id': order.id, 'total_price': order.total_price} for order in orders]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@restaurants_bp.route('/revenue/daily', methods=['GET'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def get_daily_revenue():
+    """
+    Get daily revenue for a specific date
+    ---
+    tags:
+      - Revenue
+    parameters:
+      - in: query
+        name: date
+        type: string
+        format: date
+        required: true
+        description: The date to get revenue for (YYYY-MM-DD)
+    responses:
+      200:
+        description: Daily revenue data
+    """
+    from datetime import datetime
+    from app.models.order import Order
+    
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({'error': 'Date parameter is required'}), 400
+    
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+    
+    # Get orders for the specified date
+    from sqlalchemy import func
+    orders = Order.query.filter(
+        func.date(Order.timestamp) == target_date
+    ).all()
+    
+    # Calculate total revenue
+    total_revenue = sum(order.total_price for order in orders if order.total_price)
+    
+    return jsonify({
+        'date': date_str,
+        'total': total_revenue,
+        'order_count': len(orders)
+    })
