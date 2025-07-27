@@ -2,7 +2,7 @@ import { toast } from '@/hooks/use-toast';
 
 class ApiService {
   constructor() {
-    this.baseURL = 'https://mealy-app-7r5n.onrender.com/api';
+    this.baseURL = '/api';
   }
 
   getAuthHeaders() {
@@ -12,12 +12,16 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const headers = {
+      ...this.getAuthHeaders(),
+      ...options.headers,
+    };
+    // Only set Content-Type if body is a string (JSON)
+    if (options.body && typeof options.body === 'string') {
+      headers['Content-Type'] = 'application/json';
+    }
     const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
@@ -41,28 +45,73 @@ class ApiService {
     }
   }
 
+  // Auth
+  async login(credentials) {
+    const data = await this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (data.access_token) {
+      localStorage.setItem('token', data.access_token);
+    }
+    return data;
+  }
+
+  async register(userData) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // Meals
   async getMeals() {
-    return this.request('/meals');
+    const data = await this.request('/meals');
+    return Array.isArray(data) ? data : [];
   }
 
   async createMeal(mealData) {
+    const formData = new FormData();
+    formData.append('name', mealData.name);
+    formData.append('description', mealData.description);
+    formData.append('price', mealData.price);
+    if (mealData.image instanceof File) {
+      formData.append('image', mealData.image);
+    }
+    if (mealData.caterer_id) {
+      formData.append('caterer_id', mealData.caterer_id);
+    }
     return this.request('/meals', {
       method: 'POST',
-      body: JSON.stringify(mealData),
+      body: formData,
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
   async updateMeal(mealId, mealData) {
+    const formData = new FormData();
+    formData.append('name', mealData.name);
+    formData.append('description', mealData.description);
+    formData.append('price', mealData.price);
+    if (mealData.image instanceof File) {
+      formData.append('image', mealData.image);
+    }
+    if (mealData.caterer_id) {
+      formData.append('caterer_id', mealData.caterer_id);
+    }
     return this.request(`/meals/${mealId}`, {
       method: 'PUT',
-      body: JSON.stringify(mealData),
+      body: formData,
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
   async deleteMeal(mealId) {
     return this.request(`/meals/${mealId}`, {
       method: 'DELETE',
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
@@ -72,21 +121,24 @@ class ApiService {
   }
 
   async createMenu(menuData) {
-    return this.request('/menu', {
+    return this.request('/menus', {
       method: 'POST',
       body: JSON.stringify(menuData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
   // Orders
   async getOrders() {
-    return this.request('/orders');
+    const data = await this.request('/orders');
+    return Array.isArray(data) ? data : [];
   }
 
   async createOrder(orderData) {
     return this.request('/orders', {
       method: 'POST',
       body: JSON.stringify(orderData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
@@ -94,12 +146,14 @@ class ApiService {
     return this.request(`/orders/${orderId}`, {
       method: 'PUT',
       body: JSON.stringify(orderData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
   async deleteOrder(orderId) {
     return this.request(`/orders/${orderId}`, {
       method: 'DELETE',
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
@@ -109,22 +163,8 @@ class ApiService {
 
   // Revenue
   async getDailyRevenue(date) {
-    return this.request(`/revenue/daily?date=${date}`);
-  }
-
-  // Auth
-  async login(credentials) {
-    return this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  }
-
-  async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
+    const data = await this.request(`/revenue/daily?date=${date}`);
+    return data.total || 0;
   }
 }
 

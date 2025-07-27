@@ -15,25 +15,8 @@ services:
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
-        value: supersecretkey
-      - key: JWT_SECRET_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwdWJsaWNfaWQiOiJhNmIzNzA3NS1jZWYzLTRlMmYtOGU4Ny0wNWQ4YWU1NTAwNjQiLCJleHAiOjE3NTI3ODM5NzB9.WD0r4B3YmpDb33SAMYBDBAGtpnRimtBy-atOFuysEtA
-      - key: CLOUDINARY_CLOUD_NAME
-        value: dfpymjqvg
-      - key: CLOUDINARY_API_KEY
-        value: 615376453362685
-      - key: CLOUDINARY_API_SECRET
-        value: CI32wsYeJt7Mdfn6lc2vUWQG9Ec
-      - key: MAIL_USERNAME
-        value: njorogejoy78@gmail.com
-      - key: MAIL_PASSWORD
-        value: olov gktq yyly xizf
-      - key: MAIL_SERVER
-        value: smtp.gmail.com
-      - key: MAIL_PORT
-        value: 587
+        value: your_super_secret_key_here
 
-  - type: postgres
-    name: mealy-db
+databases:
+  - name: mealy-db
     plan: free
-    region: oregon

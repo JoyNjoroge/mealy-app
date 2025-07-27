@@ -2,16 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/layout/Header';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Header from '@/components/common/Header';
+import Loading from '@/components/common/Loading';
 import apiService from '@/services/api';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const CustomerDashboard = () => {
   const [menu, setMenu] = useState([]);
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOrdering, setIsOrdering] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadDashboardData();
@@ -68,7 +72,7 @@ const CustomerDashboard = () => {
       <div className="min-h-screen bg-gradient-background">
         <Header title="Customer Dashboard" />
         <div className="flex items-center justify-center py-20">
-          <LoadingSpinner size="lg" />
+          <Loading size="lg" />
         </div>
       </div>
     );
@@ -78,6 +82,11 @@ const CustomerDashboard = () => {
     <div className="min-h-screen bg-gradient-background">
       <Header title="Customer Dashboard" notificationCount={0} />
       
+      <div className="flex justify-end gap-2 p-4">
+        <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
+        <Button variant="destructive" onClick={logout}>Logout</Button>
+      </div>
+
       <div className="container mx-auto px-4 py-6 space-y-6">
         {/* Today's Menu */}
         <Card className="shadow-card animate-fade-in">
@@ -114,7 +123,7 @@ const CustomerDashboard = () => {
                           className="bg-gradient-primary hover:shadow-glow transition-smooth"
                           size="sm"
                         >
-                          {isOrdering ? <LoadingSpinner size="sm" /> : 'Order Now'}
+                          {isOrdering ? <Loading size="sm" /> : 'Order Now'}
                         </Button>
                       </div>
                     </CardContent>

@@ -1,4 +1,8 @@
-from models import db, User, Meal, Menu, MenuItem, Order, Notification
+from app.core.database import db
+from app.models.user import User
+from app.models.restaurant import Meal, Menu, MenuItem
+from app.models.order import Order
+from app.models.delivery import Notification
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 from faker import Faker
