@@ -21,7 +21,8 @@ from flasgger import Swagger
 from seed import seed_data
 import smtplib
 from email.mime.text import MIMEText
-from flask_cors import CORS# Load environment variables
+from flask_cors import CORS
+# Load environment variables
 load_dotenv()
 
 # Initialize Flask app
@@ -100,12 +101,9 @@ class UnauthorizedError(MealAPIError):
     def __init__(self, message="Unauthorized access", payload=None):
         super().__init__(message, 401, payload)
 
-class ForbiddenError(Exception):
-    pass
-
-@app.errorhandler(ForbiddenError)
-def handle_forbidden_error(error):
-    return jsonify({'message': "You don't have permission to perform this action"}), 403
+class ForbiddenError(MealAPIError):
+    def __init__(self, message="Forbidden", payload=None):
+        super().__init__(message, 403, payload)
 
 class ValidationError(MealAPIError):
     def __init__(self, message="Validation error", payload=None):
@@ -608,28 +606,35 @@ responses:
 
 # Menu Routes
 @app.route('/api/menus', methods=['GET'])
-@jwt_required()
 def get_menus():
-    current_user_email = get_jwt_identity()
-    current_user = User.query.filter_by(email=current_user_email).first()
-
+    """
+Get all menus
+---
+tags:
+  - Menus
+parameters:
+  - name: date
+    in: query
+    type: string
+    required: false
+    description: string
+responses:
+  200:
+    description: List of menus
+"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     date = request.args.get('date')
-
+    
     query = Menu.query
-
-    if current_user.role.name == 'caterer':
-        query = query.filter_by(caterer_id=current_user.id)
-    # Optionally, add logic for customers here if needed
-
+    
     if date:
         try:
             date_obj = datetime.strptime(date, '%Y-%m-%d').date()
             query = query.filter(Menu.date == date_obj)
         except ValueError:
             raise ValidationError("Invalid date format. Use YYYY-MM-DD")
-
+    
     query = query.order_by(Menu.date.desc())
     return jsonify(paginate(query, page, per_page))
 
@@ -927,11 +932,7 @@ responses:
     elif current_user.role.name == 'caterer':
         # Get all menu items for menus created by this caterer
         menu_ids = [menu.id for menu in current_user.menus]
-        if not menu_ids:
-            return jsonify({'items': [], 'total': 0, 'pages': 0, 'current_page': 1})
         menu_item_ids = [item.id for item in MenuItem.query.filter(MenuItem.menu_id.in_(menu_ids)).all()]
-        if not menu_item_ids:
-            return jsonify({'items': [], 'total': 0, 'pages': 0, 'current_page': 1})
         query = query.filter(Order.menu_item_id.in_(menu_item_ids))
     
     if status:
@@ -1302,37 +1303,6 @@ def create_admin():
     db.session.add(admin)
     db.session.commit()
     click.echo(f"Admin user {email} created successfully.")
-
-@app.route('/api/revenue/daily')
-def get_daily_revenue():
-    """
-    Get total revenue for a given date (YYYY-MM-DD)
-    ---
-    tags:
-      - Revenue
-    parameters:
-      - name: date
-        in: query
-        type: string
-        required: true
-        description: Date in YYYY-MM-DD format
-    responses:
-      200:
-        description: Total revenue for the date
-    """
-    date_str = request.args.get('date')
-    if not date_str:
-        return jsonify({'message': 'Date parameter is required'}), 400
-    try:
-        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
-
-    # Find all orders where timestamp.date() == date_obj
-    from models import Order
-    orders = Order.query.filter(db.func.date(Order.timestamp) == date_obj).all()
-    total = sum(order.total_price for order in orders)
-    return jsonify({'total': total})
 
 if __name__ == '__main__':
     app.run(debug=True)

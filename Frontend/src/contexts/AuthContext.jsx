@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { toast } from '@/hooks/use-toast';
-import apiService from '@/services/api';
 
 const AuthContext = createContext();
 
@@ -38,47 +37,83 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      const data = await apiService.login(credentials);
-      
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setToken(data.access_token);
-      setUser(data.user);
-      
-      toast({
-        title: "Welcome back!",
-        description: `Logged in as ${data.user.role}`,
+      const response = await fetch(`${BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
       });
-      
-      return { success: true, user: data.user };
+      console.log('Login response:', response);
+      const data = await response.json();
+      console.log('Login data:', data);
+
+      if (response.ok) {
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setToken(data.access_token);
+        setUser(data.user);
+
+        toast({
+          title: "Welcome back!",
+          description: `Logged in as ${data.user.role}`,
+        });
+
+        return { success: true, user: data.user };
+      } else {
+        toast({
+          title: "Login failed",
+          description: data.message || "Invalid credentials",
+          variant: "destructive",
+        });
+        return { success: false, message: data.message };
+      }
     } catch (error) {
       console.error('Login error:', error);
       toast({
-        title: "Login failed",
-        description: error.message || "Invalid credentials",
+        title: "Login error",
+        description: "Unable to connect to server",
         variant: "destructive",
       });
-      return { success: false, message: error.message };
+      return { success: false, message: "Network error" };
     }
   };
 
   const register = async (userData) => {
     try {
-      await apiService.register(userData);
-      
-      toast({
-        title: "Account created!",
-        description: "Please log in with your credentials",
+      const response = await fetch(`${BASE_URL}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
       });
-      return { success: true };
+      console.log('Register response:', response);
+      const data = await response.json();
+      console.log('Register data:', data);
+      // Do NOT set user or token here. Registration should not log in the user.
+      if (response.ok) {
+        toast({
+          title: "Account created!",
+          description: "Please log in with your credentials",
+        });
+        return { success: true };
+      } else {
+        toast({
+          title: "Registration failed",
+          description: data.message || "Unable to create account",
+          variant: "destructive",
+        });
+        return { success: false, message: data.message };
+      }
     } catch (error) {
       console.error('Register error:', error);
       toast({
-        title: "Registration failed",
-        description: error.message || "Unable to create account",
+        title: "Registration error",
+        description: "Unable to connect to server",
         variant: "destructive",
       });
-      return { success: false, message: error.message };
+      return { success: false, message: "Network error" };
     }
   };
 

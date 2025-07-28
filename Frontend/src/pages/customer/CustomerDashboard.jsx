@@ -2,16 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/layout/Header';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Header from '@/components/common/Header';
+import Loading from '@/components/common/Loading';
 import apiService from '@/services/api';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const CustomerDashboard = () => {
   const [menu, setMenu] = useState([]);
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOrdering, setIsOrdering] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadDashboardData();
@@ -25,7 +29,7 @@ const CustomerDashboard = () => {
         apiService.getOrderHistory(),
       ]);
       setMenu(menuData.meals || []);
-      setOrders(ordersData.orders || []);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -33,10 +37,10 @@ const CustomerDashboard = () => {
     }
   };
 
-  const placeOrder = async (mealId) => {
+  const placeOrder = async (menuItemId) => {
     try {
       setIsOrdering(true);
-      await apiService.createOrder({ meal_id: mealId });
+      await apiService.createOrder({ menu_item_id: menuItemId });
       toast({
         title: "Order placed!",
         description: "Your meal has been ordered successfully",
@@ -51,7 +55,7 @@ const CustomerDashboard = () => {
 
   const cancelOrder = async (orderId) => {
     try {
-      await apiService.deleteOrder(orderId);
+      await apiService.cancelOrder(orderId);
       toast({
         title: "Order cancelled",
         description: "Your order has been cancelled",
@@ -68,7 +72,7 @@ const CustomerDashboard = () => {
       <div className="min-h-screen bg-gradient-background">
         <Header title="Customer Dashboard" />
         <div className="flex items-center justify-center py-20">
-          <LoadingSpinner size="lg" />
+          <Loading size="lg" />
         </div>
       </div>
     );
@@ -78,6 +82,10 @@ const CustomerDashboard = () => {
     <div className="min-h-screen bg-gradient-background">
       <Header title="Customer Dashboard" notificationCount={0} />
       
+      <div className="flex justify-end gap-2 p-4">
+        <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
+      </div>
+
       <div className="container mx-auto px-4 py-6 space-y-6">
         {/* Today's Menu */}
         <Card className="shadow-card animate-fade-in">
@@ -103,18 +111,23 @@ const CustomerDashboard = () => {
                     <CardContent className="p-4">
                       <h3 className="font-semibold text-lg mb-2">{meal.name}</h3>
                       <p className="text-sm text-muted-foreground mb-3">{meal.description}</p>
+                      <div className="mb-3">
+                        <p className="text-xs text-muted-foreground">
+                          By: {meal.caterer_name || 'Unknown Caterer'}
+                        </p>
+                      </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <span className="font-bold text-primary">₦{meal.price}</span>
                           <Badge variant="secondary">{meal.category}</Badge>
                         </div>
                         <Button
-                          onClick={() => placeOrder(meal.id)}
+                          onClick={() => placeOrder(meal.menu_item_id)}
                           disabled={isOrdering}
                           className="bg-gradient-primary hover:shadow-glow transition-smooth"
                           size="sm"
                         >
-                          {isOrdering ? <LoadingSpinner size="sm" /> : 'Order Now'}
+                          {isOrdering ? <Loading size="sm" /> : 'Order Now'}
                         </Button>
                       </div>
                     </CardContent>
@@ -149,7 +162,7 @@ const CustomerDashboard = () => {
                     <div className="flex-1">
                       <h4 className="font-medium">{order.meal_name}</h4>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString()} • ₦{order.total_price}
+                        {new Date(order.timestamp).toLocaleDateString()} • ₦{order.total_price}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">

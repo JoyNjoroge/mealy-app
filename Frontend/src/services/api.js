@@ -2,7 +2,7 @@ import { toast } from '@/hooks/use-toast';
 
 class ApiService {
   constructor() {
-    this.baseURL = 'https://mealy-app-7r5n.onrender.com/api';
+    this.baseURL = '/api';
   }
 
   getAuthHeaders() {
@@ -45,38 +45,61 @@ class ApiService {
     }
   }
 
+  // Auth
+  async login(credentials) {
+    const data = await this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (data.access_token) {
+      localStorage.setItem('token', data.access_token);
+    }
+    return data;
+  }
+
+  async register(userData) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // Meals
   async getMeals() {
     const data = await this.request('/meals');
-    return Array.isArray(data.items) ? data.items : [];
+    return Array.isArray(data) ? data : [];
   }
 
   async createMeal(mealData) {
-    // Always use FormData for POST /meals
     const formData = new FormData();
     formData.append('name', mealData.name);
     formData.append('description', mealData.description);
     formData.append('price', mealData.price);
-    formData.append('category', mealData.category || '');
     if (mealData.image instanceof File) {
       formData.append('image', mealData.image);
+    }
+    if (mealData.caterer_id) {
+      formData.append('caterer_id', mealData.caterer_id);
     }
     return this.request('/meals', {
       method: 'POST',
       body: formData,
-      headers: { ...this.getAuthHeaders() }, // Do not set Content-Type
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
   async updateMeal(mealId, mealData) {
-    // Always use FormData for PUT /meals/:id
     const formData = new FormData();
     formData.append('name', mealData.name);
     formData.append('description', mealData.description);
     formData.append('price', mealData.price);
-    formData.append('category', mealData.category || '');
     if (mealData.image instanceof File) {
       formData.append('image', mealData.image);
+    }
+    if (mealData.caterer_id) {
+      formData.append('caterer_id', mealData.caterer_id);
     }
     return this.request(`/meals/${mealId}`, {
       method: 'PUT',
@@ -98,22 +121,24 @@ class ApiService {
   }
 
   async createMenu(menuData) {
-    return this.request('/menu', {
+    return this.request('/menus', {
       method: 'POST',
       body: JSON.stringify(menuData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
   // Orders
   async getOrders() {
     const data = await this.request('/orders');
-    return Array.isArray(data.items) ? data.items : [];
+    return Array.isArray(data) ? data : [];
   }
 
   async createOrder(orderData) {
     return this.request('/orders', {
       method: 'POST',
       body: JSON.stringify(orderData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
@@ -121,12 +146,21 @@ class ApiService {
     return this.request(`/orders/${orderId}`, {
       method: 'PUT',
       body: JSON.stringify(orderData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
   async deleteOrder(orderId) {
     return this.request(`/orders/${orderId}`, {
       method: 'DELETE',
+      headers: { ...this.getAuthHeaders() },
+    });
+  }
+
+  async cancelOrder(orderId) {
+    return this.request(`/orders/${orderId}/cancel`, {
+      method: 'PUT',
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
@@ -140,19 +174,25 @@ class ApiService {
     return data.total || 0;
   }
 
-  // Auth
-  async login(credentials) {
-    return this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+  // Caterer-specific endpoints
+  async getMyMeals() {
+    const data = await this.request('/meals/my');
+    return Array.isArray(data) ? data : [];
   }
 
-  async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
+  async getMyMenus() {
+    const data = await this.request('/menus/my');
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getMyOrders() {
+    const data = await this.request('/orders/my');
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getMyRevenue(date) {
+    const data = await this.request(`/revenue/my?date=${date}`);
+    return data.total || 0;
   }
 }
 
