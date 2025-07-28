@@ -16,5 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Start the app using the wait-for-db script
-CMD ["/wait-for-db.sh", "python", "app.py"]
+# Expose the port (Render will override this with PORT env var)
+EXPOSE 10000
+
+# Start the app using gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
