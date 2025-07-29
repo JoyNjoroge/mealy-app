@@ -49,6 +49,7 @@ const Register = () => {
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
       {/* Background Video */}
+        
       <video
         autoPlay
         loop
