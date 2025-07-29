@@ -106,18 +106,7 @@ const HomePage = () => {
               Discover a wide variety of delicious meals from your favorite caterers,
               delivered right to your doorstep.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
-              <Link to="/register">
-                <Button size="lg" className="bg-gradient-primary hover:shadow-glow transition-smooth text-lg px-8 py-3 rounded-full shadow-lg">
-                  Get Started
-                </Button>
-              </Link>
-              <Link to="/login">
-                <Button size="lg" variant="outline" className="border-2 border-primary text-primary hover:bg-primary-light hover:text-white transition-smooth text-lg px-8 py-3 rounded-full shadow-lg">
-                  Log In
-                </Button>
-              </Link>
-            </div>
+            
           </div>
         </section>
 
@@ -142,11 +131,6 @@ const HomePage = () => {
             <p className="text-lg md:text-xl opacity-90">
               Enjoy a wide range of customers. Let’s grow your business together.
             </p>
-            <Link to="/register?role=caterer"> 
-              <Button size="lg" className="bg-white text-primary hover:bg-gray-100 transition-smooth text-lg px-8 py-3 shadow-md hover:shadow-lg rounded-full">
-                Register here
-              </Button>
-            </Link>
           </div>
         </section>
       </main>
