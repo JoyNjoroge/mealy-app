@@ -6,8 +6,12 @@ WORKDIR /app
 COPY wait-for-db.sh /wait-for-db.sh
 RUN chmod +x /wait-for-db.sh
 
-# Install system dependencies for psycopg2 and netcat
-RUN apt-get update && apt-get install -y libpq-dev gcc netcat-openbsd
+# Install system dependencies for psycopg2, netcat, and PostgreSQL client
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc \
+    netcat-openbsd \
+    postgresql-client
 
 # Install Python dependencies
 COPY requirements.txt .
