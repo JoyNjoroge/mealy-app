@@ -15,6 +15,7 @@ const Register = () => {
     password: '',
     role: 'customer',
   });
+  
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
