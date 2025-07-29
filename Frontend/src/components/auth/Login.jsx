@@ -66,9 +66,7 @@ const Login = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-end p-4">
-            <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
-          </div>
+        
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
