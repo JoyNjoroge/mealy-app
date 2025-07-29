@@ -109,6 +109,16 @@ const CustomerDashboard = () => {
                 {menu.map((meal) => (
                   <Card key={meal.id} className="border hover:shadow-soft transition-smooth">
                     <CardContent className="p-4">
+                      {meal.image_url && (
+                        <div className="flex justify-center mb-3">
+                          <img
+                            src={meal.image_url}
+                            alt={meal.name}
+                            className="h-32 w-32 object-cover rounded-lg border"
+                            onError={e => { e.target.onerror = null; e.target.src = '/public/placeholder.svg'; }}
+                          />
+                        </div>
+                      )}
                       <h3 className="font-semibold text-lg mb-2">{meal.name}</h3>
                       <p className="text-sm text-muted-foreground mb-3">{meal.description}</p>
                       <div className="mb-3">
