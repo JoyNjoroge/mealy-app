@@ -10,7 +10,7 @@ import Loading from '@/components/common/Loading.jsx';
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const { login, isAuthenticated, user, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -52,69 +52,84 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-background px-4">
-      <Card className="w-full max-w-md shadow-card animate-fade-in">
-        <CardHeader className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
-            <span className="text-2xl">🍱</span>
-          </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Welcome to Mealy
-          </CardTitle>
-          <CardDescription>
-            Sign in to your account to continue
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-end p-4">
-            <Button variant="outline" onClick={() => navigate('/')}>Go to Home</Button>
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                placeholder="Enter your email"
-                className="transition-smooth focus:shadow-soft"
-              />
+    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+      {/* Background Video */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover z-0"
+      >
+        <source src="/images/chef2.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+
+      {/* Overlay for darkening the video slightly */}
+      <div className="absolute inset-0 bg-black bg-opacity-50 z-10" />
+
+      {/* Login Card */}
+      <div className="relative z-20 w-full max-w-md">
+        <Card className="shadow-card animate-fade-in backdrop-blur-md bg-white/80">
+          <CardHeader className="text-center space-y-2">
+            <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl">🍱</span>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                placeholder="Enter your password"
-                className="transition-smooth focus:shadow-soft"
-              />
+            <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Welcome to Mealy
+            </CardTitle>
+            <CardDescription>
+              Sign in to your account to continue
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  placeholder="Enter your email"
+                  className="transition-smooth focus:shadow-soft"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  placeholder="Enter your password"
+                  className="transition-smooth focus:shadow-soft"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-primary hover:shadow-glow transition-smooth"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? <Loading size="sm" /> : 'Sign In'}
+              </Button>
+            </form>
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground">Don't have an account? </span>
+              <Link
+                to="/register"
+                className="text-primary hover:text-primary-light transition-smooth underline"
+              >
+                Sign up
+              </Link>
             </div>
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-primary hover:shadow-glow transition-smooth" 
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loading size="sm" /> : 'Sign In'}
-            </Button>
-          </form>
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link 
-              to="/register" 
-              className="text-primary hover:text-primary-light transition-smooth underline"
-            >
-              Sign up
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
