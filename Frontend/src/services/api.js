@@ -27,10 +27,18 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Failed to parse JSON response:', parseError);
+        throw new Error('Invalid response format');
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Request failed');
+        const errorMessage = data.message || data.error || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
       return data;
@@ -72,6 +80,11 @@ class ApiService {
     return Array.isArray(data) ? data : [];
   }
 
+  async getMyMeals() {
+    const data = await this.request('/meals/my');
+    return Array.isArray(data) ? data : [];
+  }
+
   async createMeal(mealData) {
     const formData = new FormData();
     formData.append('name', mealData.name);
@@ -91,20 +104,14 @@ class ApiService {
   }
 
   async updateMeal(mealId, mealData) {
-    const formData = new FormData();
-    formData.append('name', mealData.name);
-    formData.append('description', mealData.description);
-    formData.append('price', mealData.price);
-    if (mealData.image instanceof File) {
-      formData.append('image', mealData.image);
-    }
-    if (mealData.caterer_id) {
-      formData.append('caterer_id', mealData.caterer_id);
+    const submitData = { ...mealData };
+    if (!mealData.image || !(mealData.image instanceof File)) {
+      delete submitData.image;
     }
     return this.request(`/meals/${mealId}`, {
       method: 'PUT',
-      body: formData,
-      headers: { ...this.getAuthHeaders() },
+      body: JSON.stringify(submitData),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
     });
   }
 
@@ -125,6 +132,13 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(menuData),
       headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+    });
+  }
+
+  async deleteMenu(menuId) {
+    return this.request(`/menus/${menuId}`, {
+      method: 'DELETE',
+      headers: { ...this.getAuthHeaders() },
     });
   }
 
@@ -175,24 +189,44 @@ class ApiService {
   }
 
   // Caterer-specific endpoints
-  async getMyMeals() {
-    const data = await this.request('/meals/my');
+  async getCatererMeals() {
+    const data = await this.request('/caterer/meals');
     return Array.isArray(data) ? data : [];
   }
 
-  async getMyMenus() {
-    const data = await this.request('/menus/my');
+  async getCatererMenus() {
+    const data = await this.request('/caterer/menus');
     return Array.isArray(data) ? data : [];
   }
 
-  async getMyOrders() {
-    const data = await this.request('/orders/my');
+  async getCatererOrders() {
+    const data = await this.request('/caterer/orders');
     return Array.isArray(data) ? data : [];
   }
 
-  async getMyRevenue(date) {
-    const data = await this.request(`/revenue/my?date=${date}`);
-    return data.total || 0;
+  async getCatererRevenue(date) {
+    const endpoint = date ? `/caterer/revenue?date=${date}` : '/caterer/revenue';
+    const data = await this.request(endpoint);
+    // Return array of daily revenue data or single value if date specified
+    return date ? (data.total_revenue || 0) : (data.daily_revenue || []);
+  }
+
+  async getCatererStats() {
+    return this.request('/caterer/stats');
+  }
+
+  // New simplified meal system
+  async getAvailableMeals() {
+    const data = await this.request('/meals/available');
+    return Array.isArray(data) ? data : [];
+  }
+
+  async toggleMealAvailability(mealId, available) {
+    return this.request(`/meals/${mealId}/toggle`, {
+      method: 'PUT',
+      body: JSON.stringify({ available }),
+      headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+    });
   }
 }
 

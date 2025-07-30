@@ -10,6 +10,7 @@ import { toast } from '@/hooks/use-toast';
 const MenuManagement = () => {
   const [meals, setMeals] = useState([]);
   const [todaysMenu, setTodaysMenu] = useState([]);
+  const [allMenus, setAllMenus] = useState([]);
   const [selectedMeals, setSelectedMeals] = useState(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -21,17 +22,15 @@ const MenuManagement = () => {
   const loadMenuData = async () => {
     try {
       setIsLoading(true);
-      const [mealsData, menuData] = await Promise.all([
-        apiService.getMeals(),
+      const [mealsData, menuData, menusData] = await Promise.all([
+        apiService.getCatererMeals(),
         apiService.getTodaysMenu(),
+        apiService.getCatererMenus()
       ]);
       
-      setMeals(mealsData || []);
+      setMeals(mealsData);
       setTodaysMenu(menuData.meals || []);
-      
-      // Set currently selected meals
-      const currentMealIds = new Set(menuData.meals?.map(meal => meal.id) || []);
-      setSelectedMeals(currentMealIds);
+      setAllMenus(menusData);
     } catch (error) {
       console.error('Failed to load menu data:', error);
     } finally {
@@ -66,8 +65,33 @@ const MenuManagement = () => {
       loadMenuData(); // Refresh data
     } catch (error) {
       console.error('Failed to save menu:', error);
+      toast({
+        title: "Failed to save menu",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const deleteMenu = async (menuId) => {
+    if (window.confirm('Are you sure you want to delete this menu?')) {
+      try {
+        await apiService.deleteMenu(menuId);
+        toast({
+          title: "Menu deleted!",
+          description: "Menu has been deleted successfully",
+        });
+        loadMenuData(); // Refresh data
+      } catch (error) {
+        console.error('Failed to delete menu:', error);
+        toast({
+          title: "Failed to delete menu",
+          description: error.message || "Something went wrong",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -83,6 +107,45 @@ const MenuManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Menu List */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <span>📋</span>
+            <span>My Menus</span>
+          </CardTitle>
+          <CardDescription>
+            All your created menus
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {allMenus.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="text-4xl">📝</span>
+              <p className="mt-2 text-muted-foreground">No menus created yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {allMenus.map((menu) => (
+                <div key={menu.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-smooth">
+                  <div>
+                    <h3 className="font-medium">Menu for {new Date(menu.date).toLocaleDateString()}</h3>
+                    <p className="text-sm text-muted-foreground">Created by {menu.caterer_name}</p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteMenu(menu.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Current Menu Display */}
       <Card className="shadow-card">
         <CardHeader>
