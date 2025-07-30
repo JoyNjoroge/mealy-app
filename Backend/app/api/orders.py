@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.core.database import db
 from app.models.order import Order
 from app.models.user import User
-from app.models.restaurant import MenuItem
+from app.models.restaurant import MenuItem, Meal
 from app.api.decorators import roles_required
 from app.api.utils import ValidationError
 
@@ -28,21 +28,24 @@ def create_order_simple():
         if not user:
             return jsonify({'error': 'User not found'}), 404
             
-        menu_item_id = data.get('menu_item_id')
+        meal_id = data.get('meal_id')
         quantity = data.get('quantity', 1)
         
-        if not menu_item_id:
-            return jsonify({'error': 'menu_item_id is required'}), 400
+        if not meal_id:
+            return jsonify({'error': 'meal_id is required'}), 400
             
-        item = MenuItem.query.get(menu_item_id)
-        if not item:
-            return jsonify({'error': 'Menu item not found'}), 404
+        meal = Meal.query.get(meal_id)
+        if not meal:
+            return jsonify({'error': 'Meal not found'}), 404
             
-        total_price = item.meal.price * quantity
+        if not meal.available:
+            return jsonify({'error': 'Meal is not available'}), 400
+            
+        total_price = meal.price * quantity
         
         order = Order(
             user_id=user.id,
-            menu_item_id=item.id,
+            meal_id=meal_id,
             quantity=quantity,
             total_price=total_price
         )
@@ -63,7 +66,7 @@ def create_order_simple():
 @jwt_required()
 def get_orders():
     """
-    Get all orders with detailed information
+    Get all orders with detailed information (filtered by user role)
     ---
     tags:
       - Orders
@@ -71,17 +74,29 @@ def get_orders():
       200:
         description: List of orders with meal and user details
     """
-    orders = Order.query.all()
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
+    
+    if user.role == 'admin':
+        # Admin can see all orders
+        orders = Order.query.all()
+    elif user.role == 'caterer':
+        # Caterers can only see orders for their meals
+        orders = Order.query.join(Meal).filter(Meal.caterer_id == user.id).all()
+    else:
+        # Customers can only see their own orders
+        orders = Order.query.filter_by(user_id=user.id).all()
+    
     orders_with_details = []
     
     for order in orders:
         order_dict = order.to_dict()
         # Add meal details
-        if order.menu_item and order.menu_item.meal:
-            order_dict['meal_name'] = order.menu_item.meal.name
-            order_dict['meal_price'] = order.menu_item.meal.price
-            order_dict['caterer_name'] = order.menu_item.meal.caterer.name if order.menu_item.meal.caterer else 'Unknown'
-            order_dict['caterer_email'] = order.menu_item.meal.caterer.email if order.menu_item.meal.caterer else 'Unknown'
+        if order.meal:
+            order_dict['meal_name'] = order.meal.name
+            order_dict['meal_price'] = order.meal.price
+            order_dict['caterer_name'] = order.meal.caterer.name if order.meal.caterer else 'Unknown'
+            order_dict['caterer_email'] = order.meal.caterer.email if order.meal.caterer else 'Unknown'
         else:
             order_dict['meal_name'] = 'Unknown Meal'
             order_dict['meal_price'] = 0
@@ -105,7 +120,7 @@ def get_orders():
 @roles_required('customer')
 def create_order():
     """
-    Create a new order (customer only)
+    Create a new order (direct meal order)
     ---
     tags:
       - Orders
@@ -116,50 +131,59 @@ def create_order():
         schema:
           type: object
           properties:
-            menu_item_id:
+            meal_id:
               type: integer
             quantity:
               type: integer
+            special_instructions:
+              type: string
     responses:
       201:
         description: Order created
     """
-    data = request.get_json()
-    current_user_email = get_jwt_identity()
-    user = User.query.filter_by(email=current_user_email).first()
-    
-    menu_item_id = data.get('menu_item_id')
-    if not menu_item_id:
-        return jsonify({'error': 'menu_item_id is required'}), 400
+    try:
+        data = request.get_json()
+        current_user_email = get_jwt_identity()
+        user = User.query.filter_by(email=current_user_email).first()
         
-    item = MenuItem.query.get_or_404(menu_item_id)
-    quantity = data.get('quantity', 1)
-    total_price = item.meal.price * quantity
-    order = Order(
-        user_id=user.id,
-        menu_item_id=item.id,
-        quantity=quantity,
-        total_price=total_price
-    )
-    db.session.add(order)
-    db.session.commit()
-
-    # Send email to customer
-    # send_email(
-    #     user.email,
-    #     "Order Placed Successfully",
-    #     f"<h1>Thank you for your order!</h1><p>Your order for {item.meal.name} (x{quantity}) has been placed.</p>"
-    # )
-    # Send email to caterer
-    # caterer = item.meal.caterer
-    # if caterer and caterer.email:
-    #     send_email(
-    #         caterer.email,
-    #         "New Order Received",
-    #         f"<h1>New Order!</h1><p>{user.name} placed an order for {item.meal.name} (x{quantity}).</p>"
-    #     )
-
-    return jsonify(order.to_dict()), 201
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        meal_id = data.get('meal_id')
+        quantity = data.get('quantity', 1)
+        special_instructions = data.get('special_instructions', '')
+        
+        if not meal_id:
+            return jsonify({'error': 'meal_id is required'}), 400
+            
+        meal = Meal.query.get(meal_id)
+        if not meal:
+            return jsonify({'error': 'Meal not found'}), 404
+            
+        if not meal.available:
+            return jsonify({'error': 'Meal is not available'}), 400
+            
+        total_price = meal.price * quantity
+        
+        order = Order(
+            user_id=user.id,
+            meal_id=meal_id,
+            quantity=quantity,
+            total_price=total_price,
+            special_instructions=special_instructions
+        )
+        
+        db.session.add(order)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Order created successfully',
+            'order': order.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @orders_bp.route('/orders/<int:order_id>', methods=['GET'])
 @jwt_required()
@@ -249,6 +273,46 @@ def delete_order(order_id):
     else:
         return jsonify({'error': 'Not authorized to delete this order'}), 403
 
+@orders_bp.route('/orders/<int:order_id>/complete', methods=['PUT'])
+@jwt_required()
+@roles_required('caterer', 'admin')
+def complete_order(order_id):
+    """
+    Complete an order by ID (caterer only)
+    ---
+    tags:
+      - Orders
+    parameters:
+      - in: path
+        name: order_id
+        type: integer
+        required: true
+        description: The order ID
+    responses:
+      200:
+        description: Order completed
+      403:
+        description: Not authorized to complete this order
+      404:
+        description: Order not found
+    """
+    current_user_email = get_jwt_identity()
+    user = User.query.filter_by(email=current_user_email).first()
+    order = Order.query.get_or_404(order_id)
+    
+    # Check if the order belongs to this caterer's meals
+    if order.meal.caterer_id != user.id:
+        return jsonify({'error': 'Not authorized to complete this order'}), 403
+    
+    # Update order status to completed
+    order.status = 'completed'
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Order completed successfully',
+        'order': order.to_dict()
+    })
+
 @orders_bp.route('/orders/<int:order_id>/cancel', methods=['PUT'])
 @jwt_required()
 @roles_required('customer')
@@ -302,11 +366,11 @@ def get_order_history():
     for order in orders:
         order_dict = order.to_dict()
         # Add meal details
-        if order.menu_item and order.menu_item.meal:
-            order_dict['meal_name'] = order.menu_item.meal.name
-            order_dict['meal_price'] = order.menu_item.meal.price
-            order_dict['caterer_name'] = order.menu_item.meal.caterer.name if order.menu_item.meal.caterer else 'Unknown'
-            order_dict['caterer_email'] = order.menu_item.meal.caterer.email if order.menu_item.meal.caterer else 'Unknown'
+        if order.meal:
+            order_dict['meal_name'] = order.meal.name
+            order_dict['meal_price'] = order.meal.price
+            order_dict['caterer_name'] = order.meal.caterer.name if order.meal.caterer else 'Unknown'
+            order_dict['caterer_email'] = order.meal.caterer.email if order.meal.caterer else 'Unknown'
         else:
             order_dict['meal_name'] = 'Unknown Meal'
             order_dict['meal_price'] = 0

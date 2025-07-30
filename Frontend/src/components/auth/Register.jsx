@@ -15,6 +15,7 @@ const Register = () => {
     password: '',
     role: 'customer',
   });
+  
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -49,6 +50,7 @@ const Register = () => {
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
       {/* Background Video */}
+        
       <video
         autoPlay
         loop

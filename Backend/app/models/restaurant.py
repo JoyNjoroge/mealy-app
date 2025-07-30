@@ -9,9 +9,11 @@ class Meal(db.Model, SerializerMixin):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     price = db.Column(db.Float, nullable=False)
-    image_url = db.Column(db.String(255))
-    caterer_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
+    image_url = db.Column(db.String(500))
+    caterer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    available = db.Column(db.Boolean, default=True)  # New field for availability
 
+    # Remove caterer relationship since it's already defined in User model
     menu_items = db.relationship('MenuItem', backref='meal', cascade='all, delete')
 
     def __repr__(self):
@@ -22,8 +24,11 @@ class Menu(db.Model, SerializerMixin):
     serialize_rules = ('-menu_items',)
 
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.Date, nullable=False, unique=True)
+    date = db.Column(db.Date, nullable=False)
     caterer_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
+    
+    # Composite unique constraint: one menu per date per caterer
+    __table_args__ = (db.UniqueConstraint('date', 'caterer_id', name='unique_menu_per_caterer_per_date'),)
 
     menu_items = db.relationship('MenuItem', backref='menu', cascade='all, delete')
 
@@ -38,7 +43,6 @@ class MenuItem(db.Model, SerializerMixin):
     menu_id = db.Column(db.Integer, db.ForeignKey('menus.id'), nullable=False, index=True)
     meal_id = db.Column(db.Integer, db.ForeignKey('meals.id'), nullable=False, index=True)
 
-    orders = db.relationship('Order', backref='menu_item', cascade='all, delete')
-
+    # Remove orders relationship since orders now reference meals directly
     def __repr__(self):
         return f'<MenuItem Menu={self.menu_id} Meal={self.meal_id}>' 

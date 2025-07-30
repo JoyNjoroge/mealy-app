@@ -1,0 +1,11 @@
+nohup: ignoring input
+ * Serving Flask app 'main'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.100.66:5000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [30/Jul/2025 02:24:49] "POST /api/auth/login HTTP/1.1" 200 -
+127.0.0.1 - - [30/Jul/2025 02:27:51] "[35m[1mPOST /api/meals HTTP/1.1[0m" 201 -
+127.0.0.1 - - [30/Jul/2025 02:27:51] "GET /api/caterer/meals HTTP/1.1" 200 -
