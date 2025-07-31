@@ -25,4 +25,4 @@ ENV PYTHONPATH="/app"
 EXPOSE 10000
 
 # Start the app using gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:10000", "main:app"]
