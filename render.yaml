@@ -1,9 +1,4 @@
 services:
-  - type: pserv
-    name: mealydb
-    env: postgresql
-    plan: free
-
   - type: web
     name: mealy-backend
     env: python
@@ -11,11 +6,6 @@ services:
     buildCommand: cd Backend && pip install -r requirements.txt
     startCommand: cd Backend && gunicorn run:app --bind 0.0.0.0:$PORT
     envVars:
-      - key: DATABASE_URL
-        fromService:
-          type: pserv
-          name: mealydb
-          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET_KEY
