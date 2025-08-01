@@ -1,9 +1,4 @@
-# render.yaml
-# Blueprint for deploying the Mealy Flask Backend on Render
-# Place this file in the root of your mealy-app repository.
-
 services:
-  # 1. A PostgreSQL database for your application
   - type: pserv
     name: mealydb
     env: postgres
@@ -14,14 +9,11 @@ services:
       sizeGB: 1
       mountPath: /var/lib/postgresql/data
 
-  # 2. The Flask web service
   - type: web
     name: mealy-backend
     env: docker
-    # Tell Render to look for the Dockerfile inside the Backend folder
     dockerContext: ./Backend
     dockerfilePath: ./Backend/Dockerfile
-    # The health check will ping the root route defined in app/main.py
     healthCheckPath: /
     envVars:
       - key: DATABASE_URL
@@ -29,15 +21,3 @@ services:
           type: pserv
           name: mealydb
           property: connectionString
-      - key: PYTHONUNBUFFERED
-        value: 1
-      - key: FLASK_APP
-        value: app.main # Points to the app instance in Backend/app/main.py
-      # --- SECRET ENV VARS ---
-      # It is more secure to set these in the Render dashboard
-      # under the Environment tab for your service.
-      - key: SECRET_KEY
-        sync: false
-      - key: JWT_SECRET_KEY
-        sync
-

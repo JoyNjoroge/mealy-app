@@ -1,13 +1,9 @@
-#!/usr/bin/env bash
-# exit on error
-set -o errexit
+#!/bin/bash
+# Wait for DB
+/wait-for-db.sh $DATABASE_URL
 
-echo "Running Database Migrations..."
-# FLASK_APP is set in render.yaml, so the flask command will find the app
-flask db upgrade
-echo "Migrations complete."
+# Run migrations
+alembic upgrade head
 
-echo "Starting Gunicorn..."
-# Render provides the PORT environment variable.
-# The app entry point is app.main:app
-gunicorn --bind 0.0.0.0:$PORT app.main:app
+# Start app
+gunicorn app.main:app --bind 0.0.0.0:$PORT
