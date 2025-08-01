@@ -3,7 +3,7 @@ from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash, check_password_hash
 from http import HTTPStatus
 from app.core.database import db
-from app.models.user import User
+from app.models.user import User, UserRoles
 from app.api.utils import ValidationError, UnauthorizedError, send_email
 
 auth_bp = Blueprint('auth', __name__)
@@ -42,12 +42,20 @@ def register():
     if User.query.filter_by(email=data['email']).first():
         raise ValidationError("Email already exists")
     hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
+    
+    # Handle role assignment properly
+    role_str = data.get('role', 'customer')
+    try:
+        role = UserRoles(role_str)
+    except ValueError:
+        role = UserRoles.customer  # Default to customer if invalid role
+    
     try:
         user = User(
             name=data.get('name', ''),
             email=data['email'],
             password=hashed_password,
-            role=data.get('role', 'customer')
+            role=role
         )
         db.session.add(user)
         db.session.commit()
