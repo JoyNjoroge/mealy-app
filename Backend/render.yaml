@@ -15,6 +15,7 @@ services:
     dockerContext: ./Backend
     dockerfilePath: ./Backend/Dockerfile
     healthCheckPath: /
+    preDeployCommand: alembic upgrade head
     envVars:
       - key: DATABASE_URL
         fromService:

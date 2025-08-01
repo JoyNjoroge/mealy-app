@@ -1,9 +1,7 @@
 #!/bin/bash
-# Wait for DB
-/wait-for-db.sh $DATABASE_URL
+set -e
 
-# Run migrations
-alembic upgrade head
+/wait-for-db.sh
 
-# Start app
+# Start Gunicorn with Render's dynamic PORT
 gunicorn app.main:app --bind 0.0.0.0:$PORT
