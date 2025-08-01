@@ -7,6 +7,7 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flasgger import Swagger
 import cloudinary
+import os
 from app.core.config import Config
 from app.core.database import db
 
@@ -29,6 +30,21 @@ def create_app():
         api_key=Config.CLOUDINARY_API_KEY,
         api_secret=Config.CLOUDINARY_API_SECRET
     )
+
+    # Auto-run migrations on startup (for free tier deployments)
+    with app.app_context():
+        try:
+            from flask_migrate import upgrade
+            upgrade()
+            print("Database migrations completed successfully")
+        except Exception as e:
+            print(f"Migration error (this is normal on first run): {e}")
+            # Create tables if migrations fail
+            try:
+                db.create_all()
+                print("Database tables created successfully")
+            except Exception as e2:
+                print(f"Database creation error: {e2}")
 
     # Import and register blueprints/routes
     from app.api.auth import auth_bp
