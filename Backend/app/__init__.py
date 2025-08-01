@@ -31,26 +31,11 @@ def create_app():
         api_secret=Config.CLOUDINARY_API_SECRET
     )
 
-    # Import models to ensure they're registered with SQLAlchemy
-    from app.models.user import User
+    # Import all models to ensure they are loaded when the app starts
+    from app.models.user import User, UserRoles
     from app.models.restaurant import Meal, Menu, MenuItem
     from app.models.order import Order
     from app.models.delivery import Notification
-
-    # Auto-run migrations on startup (for free tier deployments)
-    with app.app_context():
-        try:
-            from flask_migrate import upgrade
-            upgrade()
-            print("Database migrations completed successfully")
-        except Exception as e:
-            print(f"Migration error (this is normal on first run): {e}")
-            # Create tables if migrations fail
-            try:
-                db.create_all()
-                print("Database tables created successfully")
-            except Exception as e2:
-                print(f"Database creation error: {e2}")
 
     # Import and register blueprints/routes
     from app.api.auth import auth_bp
@@ -76,7 +61,7 @@ def create_app():
 
     # Error handlers
     from app.api.utils import UnauthorizedError, ValidationError
-    
+
     @app.errorhandler(UnauthorizedError)
     def handle_unauthorized_error(error):
         response = {
