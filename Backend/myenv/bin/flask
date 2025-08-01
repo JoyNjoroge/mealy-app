@@ -1,4 +1,4 @@
-#!/home/d4rk1nj3ct0r/Development/Moringa/mealy-app/Backend/app/myenv/bin/python3
+#!/home/d4rk1nj3ct0r/Documents/Dev/mealy-app/Backend/myenv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

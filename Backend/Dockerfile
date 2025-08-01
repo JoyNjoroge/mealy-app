@@ -6,6 +6,10 @@ WORKDIR /app
 COPY wait-for-db.sh /wait-for-db.sh
 RUN chmod +x /wait-for-db.sh
 
+# Copy start script and make it executable
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Install system dependencies for psycopg2, netcat, and PostgreSQL client
 RUN apt-get update && apt-get install -y \
     libpq-dev \
@@ -19,10 +23,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
-
 ENV PYTHONPATH="/app"
 # Expose the port (Render will override this with PORT env var)
 EXPOSE 10000
-
-# Start the app using gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:create_app()"]
+# Run migrations and start the app using our startup script
+CMD ["./start.sh"]
