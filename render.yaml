@@ -1,0 +1,43 @@
+services:
+  - type: pserv
+    name: mealydb
+    env: postgres
+    postgres:
+      version: 15
+    disk:
+      name: mealy-db-disk
+      sizeGB: 1
+      mountPath: /var/lib/postgresql/data
+
+  - type: web
+    name: mealy-backend
+    env: python
+    buildCommand: cd Backend && pip install -r requirements.txt
+    startCommand: cd Backend && gunicorn run:app --bind 0.0.0.0:$PORT
+    preDeployCommand: cd Backend && alembic upgrade head
+    envVars:
+      - key: DATABASE_URL
+        fromService:
+          type: pserv
+          name: mealydb
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        value: dfpymjqvg
+      - key: CLOUDINARY_API_KEY
+        value: 615376453362685
+      - key: CLOUDINARY_API_SECRET
+        value: CI32wsYeJt7Mdfn6lc2vUWQG9Ec
+      - key: MAIL_SERVER
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_USE_TLS
+        value: True
+      - key: MAIL_USERNAME
+        value: gakiimbaeh@gmail.com
+      - key: MAIL_PASSWORD
+        value: olov gktq yyly xizf
