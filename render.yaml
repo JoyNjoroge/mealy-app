@@ -3,10 +3,6 @@ services:
     name: mealydb
     env: postgres
     plan: free
-    disk:
-      name: mealy-db-disk
-      sizeGB: 1
-      mountPath: /var/lib/postgresql/data
 
   - type: web
     name: mealy-backend
@@ -14,13 +10,12 @@ services:
     plan: free
     buildCommand: cd Backend && pip install -r requirements.txt
     startCommand: cd Backend && gunicorn run:app --bind 0.0.0.0:$PORT
-    preDeployCommand: cd Backend && alembic upgrade head
     envVars:
       - key: DATABASE_URL
         fromService:
           type: pserv
           name: mealydb
-          property: connectionString
+          property: externalDatabaseUrl
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET_KEY
