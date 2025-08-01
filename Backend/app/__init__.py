@@ -31,6 +31,12 @@ def create_app():
         api_secret=Config.CLOUDINARY_API_SECRET
     )
 
+    # Import models to ensure they're registered with SQLAlchemy
+    from app.models.user import User
+    from app.models.restaurant import Meal, Menu, MenuItem
+    from app.models.order import Order
+    from app.models.delivery import Notification
+
     # Auto-run migrations on startup (for free tier deployments)
     with app.app_context():
         try:
