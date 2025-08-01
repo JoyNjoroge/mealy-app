@@ -5,6 +5,7 @@ from http import HTTPStatus
 from app.core.database import db
 from app.models.user import User, UserRoles
 from app.api.utils import ValidationError, UnauthorizedError, send_email
+import traceback
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -36,42 +37,51 @@ def register():
       400:
         description: Invalid input
     """
-    data = request.get_json()
-    if not data or not data.get('email') or not data.get('password'):
-        raise ValidationError("Email and password are required")
-    if User.query.filter_by(email=data['email']).first():
-        raise ValidationError("Email already exists")
-    hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
-    
-    # Handle role assignment properly
-    role_str = data.get('role', 'customer')
     try:
-        role = UserRoles(role_str)
-    except ValueError:
-        role = UserRoles.customer  # Default to customer if invalid role
-    
-    try:
-        user = User(
-            name=data.get('name', ''),
-            email=data['email'],
-            password=hashed_password,
-            role=role
-        )
-        db.session.add(user)
-        db.session.commit()
-        # Temporarily disable email sending to avoid deployment issues
-        # send_email(
-        #     user.email,
-        #     "Welcome to Mealy",
-        #     f"<h1>Welcome {user.name}</h1><p>Your account has been created successfully.</p>"
-        # )
-        return jsonify({
-            'message': 'User created successfully',
-            'user': user.to_dict()
-        }), HTTPStatus.CREATED
+        data = request.get_json()
+        if not data or not data.get('email') or not data.get('password'):
+            raise ValidationError("Email and password are required")
+        if User.query.filter_by(email=data['email']).first():
+            raise ValidationError("Email already exists")
+        hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
+        
+        # Handle role assignment properly
+        role_str = data.get('role', 'customer')
+        try:
+            role = UserRoles(role_str)
+        except ValueError:
+            role = UserRoles.customer  # Default to customer if invalid role
+        
+        try:
+            user = User(
+                name=data.get('name', ''),
+                email=data['email'],
+                password=hashed_password,
+                role=role
+            )
+            db.session.add(user)
+            db.session.commit()
+            # Temporarily disable email sending to avoid deployment issues
+            # send_email(
+            #     user.email,
+            #     "Welcome to Mealy",
+            #     f"<h1>Welcome {user.name}</h1><p>Your account has been created successfully.</p>"
+            # )
+            return jsonify({
+                'message': 'User created successfully',
+                'user': user.to_dict()
+            }), HTTPStatus.CREATED
+        except Exception as e:
+            db.session.rollback()
+            print(f"Database error: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            raise ValidationError(f"Database error: {str(e)}")
     except Exception as e:
-        db.session.rollback()
-        raise ValidationError(str(e))
+        print(f"Registration error: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        if isinstance(e, (ValidationError, UnauthorizedError)):
+            raise e
+        return jsonify({"error": str(e)}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
