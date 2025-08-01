@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
   proxy: {
     '/api': {
-      target: 'https://dine-app.onrender.com', // backend
+      target: 'https://mealy-bakend-app.onrender.com', // backend
       changeOrigin: true,
     },
   },
