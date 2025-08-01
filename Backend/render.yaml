@@ -11,10 +11,9 @@ services:
 
   - type: web
     name: mealy-backend
-    env: docker
-    dockerContext: ./Backend
-    dockerfilePath: ./Backend/Dockerfile
-    healthCheckPath: /
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app.main:app --bind 0.0.0.0:$PORT
     preDeployCommand: alembic upgrade head
     envVars:
       - key: DATABASE_URL
