@@ -51,11 +51,12 @@ def register():
         )
         db.session.add(user)
         db.session.commit()
-        send_email(
-            user.email,
-            "Welcome to Mealy",
-            f"<h1>Welcome {user.name}</h1><p>Your account has been created successfully.</p>"
-        )
+        # Temporarily disable email sending to avoid deployment issues
+        # send_email(
+        #     user.email,
+        #     "Welcome to Mealy",
+        #     f"<h1>Welcome {user.name}</h1><p>Your account has been created successfully.</p>"
+        # )
         return jsonify({
             'message': 'User created successfully',
             'user': user.to_dict()
