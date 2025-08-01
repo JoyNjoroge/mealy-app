@@ -1,7 +1,7 @@
 services:
   - type: pserv
     name: mealydb
-    env: postgres
+    env: postgresql
     plan: free
 
   - type: web
@@ -15,7 +15,7 @@ services:
         fromService:
           type: pserv
           name: mealydb
-          property: externalDatabaseUrl
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET_KEY
