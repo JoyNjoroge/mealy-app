@@ -2,7 +2,7 @@ import { toast } from '@/hooks/use-toast';
 
 class ApiService {
   constructor() {
-    this.baseURL = 'https://mealy-bakend-app.onrender.com/api';
+    this.baseURL = 'https://mealy-backend-cjnv.onrender.com/api';
   }
 
   getAuthHeaders() {

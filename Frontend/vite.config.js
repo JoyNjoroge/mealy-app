@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
   proxy: {
     '/api': {
-      target: 'https://mealy-bakend-app.onrender.com', // backend
+      target: 'https://mealy-backend-cjnv.onrender.com', // Updated to new Blueprint URL
       changeOrigin: true,
     },
   },
